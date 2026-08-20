@@ -1,0 +1,35 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+from app.config import get_settings
+
+settings = get_settings()
+
+app = FastAPI(
+    title="HelixMind API",
+    version="0.1.0",
+    description="Scientific intelligence API for evidence-led CRISPR research.",
+    openapi_url="/api/v1/openapi.json",
+    docs_url="/api/v1/docs",
+    redoc_url=None,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept"],
+)
+
+
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+
+
+@app.get("/api/v1/health", response_model=HealthResponse, tags=["system"])
+def health() -> HealthResponse:
+    """Local readiness probe. The API remains private until reverse-proxied later."""
+    return HealthResponse(status="ok", service="helixmind-api")

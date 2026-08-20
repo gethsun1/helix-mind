@@ -1,5 +1,8 @@
 node_modules/
 .next/
+.venv/
+backend/.pytest_cache/
+backend/**/__pycache__/
 out/
 .vercel/
 *.log
@@ -7,5 +10,4 @@ out/
 .env.*
 !.env.example
 coverage/
-node_modules
 .vercel
