@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8401
     cors_origins: str = "https://helix-mind-green.vercel.app"
+    database_url: str = "postgresql+psycopg:///helixmind"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from app.config import get_settings
+from app.db import engine
 
 settings = get_settings()
 
@@ -32,4 +34,6 @@ class HealthResponse(BaseModel):
 @app.get("/api/v1/health", response_model=HealthResponse, tags=["system"])
 def health() -> HealthResponse:
     """Local readiness probe. The API remains private until reverse-proxied later."""
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
     return HealthResponse(status="ok", service="helixmind-api")
