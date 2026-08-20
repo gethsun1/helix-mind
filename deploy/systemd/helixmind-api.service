@@ -1,0 +1,22 @@
+[Unit]
+Description=HelixMind FastAPI service
+After=network.target postgresql.service
+
+[Service]
+Type=simple
+User=helixmind
+Group=helixmind
+WorkingDirectory=/opt/HelixMind/backend
+EnvironmentFile=/etc/helixmind/helixmind.env
+Environment=PYTHONPATH=/opt/HelixMind/backend
+ExecStart=/opt/HelixMind/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8401 --proxy-headers
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/HelixMind
+
+[Install]
+WantedBy=multi-user.target

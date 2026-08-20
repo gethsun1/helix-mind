@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     port: int = 8401
     cors_origins: str = "https://helix-mind-green.vercel.app"
     database_url: str = "postgresql+psycopg:///helixmind"
+    redis_url: str = "redis://127.0.0.1:6381/0"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.db import engine
+from app.routes.investigations import router as investigations_router
 
 settings = get_settings()
 
@@ -24,6 +25,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["Content-Type", "Accept"],
 )
+app.include_router(investigations_router)
 
 
 class HealthResponse(BaseModel):

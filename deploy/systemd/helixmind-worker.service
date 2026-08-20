@@ -1,0 +1,23 @@
+[Unit]
+Description=HelixMind research queue worker
+After=network.target postgresql.service helixmind-redis.service
+Requires=helixmind-redis.service
+
+[Service]
+Type=simple
+User=helixmind
+Group=helixmind
+WorkingDirectory=/opt/HelixMind/backend
+EnvironmentFile=/etc/helixmind/helixmind.env
+Environment=PYTHONPATH=/opt/HelixMind/backend
+ExecStart=/opt/HelixMind/.venv/bin/rq worker --url redis://127.0.0.1:6381/0 helixmind-research
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/HelixMind
+
+[Install]
+WantedBy=multi-user.target

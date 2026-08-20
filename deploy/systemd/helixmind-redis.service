@@ -1,0 +1,21 @@
+[Unit]
+Description=HelixMind isolated Redis queue
+After=network.target
+
+[Service]
+Type=notify
+User=helixmind
+Group=helixmind
+RuntimeDirectory=helixmind-redis
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/redis-server /etc/helixmind/redis.conf --supervised systemd
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/var/lib/helixmind-redis /var/log/helixmind /run/helixmind-redis
+
+[Install]
+WantedBy=multi-user.target
