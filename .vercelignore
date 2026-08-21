@@ -1,0 +1,11 @@
+# Vercel serves the Next.js frontend; backend/runtime assets stay on HelixMind's VPS.
+node_modules/
+.next/
+.runtime/
+.venv/
+.git/
+backend/
+deploy/
+docs/
+*.pyc
+__pycache__/
