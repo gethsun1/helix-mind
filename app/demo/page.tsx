@@ -1,0 +1,7 @@
+import Link from 'next/link';
+
+import { Brand } from '../components/Brand';
+
+export default function DemoPage() {
+  return <main className="demo-page"><header className="landing-nav"><Brand /><Link href="/login" className="button button-small">Start researching</Link></header><div className="demo-wrap"><p className="eyebrow">PUBLIC DEMONSTRATION / NOT A LIVE INVESTIGATION</p><h1>How an evidence-led investigation is structured.</h1><p className="demo-lede">This walk-through uses a CRISPR research question to show the HelixMind workflow. It contains no fabricated papers, citations, experimental results, or scientific conclusions.</p><div className="demo-question"><span>DEMONSTRATION QUESTION</span><h2>What evidence should a researcher examine when studying CRISPR-based therapeutic approaches to sickle-cell disease?</h2></div><div className="demo-steps">{['Question and scope', 'Literature retrieval', 'Evidence with provenance', 'Structured relationships', 'Reasoning and uncertainty', 'Grounded synthesis'].map((step, index) => <div key={step}><span>{String(index + 1).padStart(2, '0')}</span><h3>{step}</h3><p>{index === 0 ? 'Define the research question, domain and boundaries.' : 'Available in a real authenticated investigation after official source records are retrieved.'}</p></div>)}</div><p className="disclaimer demo-disclaimer">Demonstration content is intentionally conceptual. HelixMind distinguishes SOURCE EVIDENCE, AI INTERPRETATION and SYSTEM INFERENCE.</p><Link href="/login" className="button">Create a real investigation ↗</Link></div></main>;
+}

@@ -13,10 +13,27 @@ class UUIDPrimaryKey:
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
 
+class User(UUIDPrimaryKey, Base):
+    __tablename__ = "users"
+    __table_args__ = (Index("ix_users_email", "email", unique=True),)
+
+    email: Mapped[str] = mapped_column(String(320), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image: Mapped[str | None] = mapped_column(Text, nullable=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False, default="USER", server_default="USER")
+    provider_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
+    organization: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    research_focus: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class Investigation(UUIDPrimaryKey, Base):
     __tablename__ = "investigations"
     __table_args__ = (Index("ix_investigations_status_created_at", "status", "created_at"),)
 
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
     research_plan: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

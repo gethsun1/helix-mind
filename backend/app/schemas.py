@@ -26,6 +26,23 @@ class InvestigationRead(BaseModel):
     status: str
 
 
+class UserRead(BaseModel):
+    id: UUID
+    email: str
+    name: str | None
+    image: str | None
+    role: str
+    organization: str | None
+    research_focus: str | None
+
+
+class OAuthUserSync(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    name: str | None = Field(default=None, max_length=255)
+    image: str | None = Field(default=None, max_length=2_000)
+    provider_account_id: str | None = Field(default=None, max_length=255)
+
+
 class PaperRead(BaseModel):
     id: UUID
     source: str

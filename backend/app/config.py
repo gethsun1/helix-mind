@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     literature_timeout_seconds: float = 20.0
     ncbi_tool: str = "helixmind"
     ncbi_email: str | None = None
+    auth_secret: str = ""
+    auth_sync_secret: str = ""
+    admin_email: str = "gethsun09@gmail.com"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -1,23 +1,24 @@
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from redis.exceptions import RedisError
 from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.jobs import start_investigation
-from app.models import Investigation, InvestigationEvent, InvestigationPaper, Paper
+from app.models import Investigation, InvestigationEvent, InvestigationPaper, Paper, User
 from app.queue import get_research_queue
+from app.security import get_current_user
 from app.schemas import InvestigationCreate, InvestigationCreated, InvestigationEventRead, InvestigationRead, PaperRead
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 
 
 @router.post("", response_model=InvestigationCreated, status_code=status.HTTP_202_ACCEPTED)
-def create_investigation(payload: InvestigationCreate) -> InvestigationCreated:
+def create_investigation(payload: InvestigationCreate, user: User = Depends(get_current_user)) -> InvestigationCreated:
     session = SessionLocal()
     try:
-        investigation = Investigation(question=payload.question.strip())
+        investigation = Investigation(owner_id=user.id, question=payload.question.strip())
         session.add(investigation)
         session.flush()
         investigation_id = investigation.id
@@ -37,10 +38,12 @@ def create_investigation(payload: InvestigationCreate) -> InvestigationCreated:
 
 
 @router.get("/{investigation_id}", response_model=InvestigationRead)
-def get_investigation(investigation_id: UUID) -> InvestigationRead:
+def get_investigation(investigation_id: UUID, user: User = Depends(get_current_user)) -> InvestigationRead:
     session = SessionLocal()
     try:
-        investigation = session.get(Investigation, investigation_id)
+        investigation = session.scalar(
+            select(Investigation).where(Investigation.id == investigation_id, Investigation.owner_id == user.id)
+        )
         if investigation is None:
             raise HTTPException(status_code=404, detail="Investigation not found.")
         return InvestigationRead(id=investigation.id, question=investigation.question, status=investigation.status)
@@ -49,9 +52,11 @@ def get_investigation(investigation_id: UUID) -> InvestigationRead:
 
 
 @router.get("/{investigation_id}/events", response_model=list[InvestigationEventRead])
-def get_investigation_events(investigation_id: UUID) -> list[InvestigationEventRead]:
+def get_investigation_events(investigation_id: UUID, user: User = Depends(get_current_user)) -> list[InvestigationEventRead]:
     session = SessionLocal()
     try:
+        if session.scalar(select(Investigation.id).where(Investigation.id == investigation_id, Investigation.owner_id == user.id)) is None:
+            raise HTTPException(status_code=404, detail="Investigation not found.")
         events = session.scalars(
             select(InvestigationEvent)
             .where(InvestigationEvent.investigation_id == investigation_id)
@@ -71,9 +76,11 @@ def get_investigation_events(investigation_id: UUID) -> list[InvestigationEventR
 
 
 @router.get("/{investigation_id}/papers", response_model=list[PaperRead])
-def get_investigation_papers(investigation_id: UUID) -> list[PaperRead]:
+def get_investigation_papers(investigation_id: UUID, user: User = Depends(get_current_user)) -> list[PaperRead]:
     session = SessionLocal()
     try:
+        if session.scalar(select(Investigation.id).where(Investigation.id == investigation_id, Investigation.owner_id == user.id)) is None:
+            raise HTTPException(status_code=404, detail="Investigation not found.")
         papers = session.scalars(
             select(Paper)
             .join(InvestigationPaper, InvestigationPaper.paper_id == Paper.id)
@@ -94,6 +101,23 @@ def get_investigation_papers(investigation_id: UUID) -> list[PaperRead]:
                 metadata=paper.paper_metadata,
             )
             for paper in papers
+        ]
+    finally:
+        session.close()
+
+
+@router.get("", response_model=list[InvestigationRead])
+def list_investigations(user: User = Depends(get_current_user)) -> list[InvestigationRead]:
+    session = SessionLocal()
+    try:
+        investigations = session.scalars(
+            select(Investigation)
+            .where(Investigation.owner_id == user.id)
+            .order_by(Investigation.updated_at.desc())
+        ).all()
+        return [
+            InvestigationRead(id=item.id, question=item.question, status=item.status)
+            for item in investigations
         ]
     finally:
         session.close()

@@ -12,7 +12,24 @@
   "bugs": {
     "url": "https://github.com/gethsun1/helix-mind/issues"
   },
-  "scripts": { "dev": "next dev", "build": "next build", "start": "next start", "lint": "next lint" },
-  "dependencies": { "@heroicons/react": "^2.2.0", "next": "14.2.5", "react": "^18.3.1", "react-dom": "^18.3.1" },
-  "devDependencies": { "@types/node": "^20.14.12", "@types/react": "^18.3.3", "@types/react-dom": "^18.3.0", "typescript": "^5.5.4" }
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@heroicons/react": "^2.2.0",
+    "jose": "^5.10.0",
+    "next": "14.2.5",
+    "next-auth": "^4.24.11",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "typescript": "^5.5.4"
+  }
 }

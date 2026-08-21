@@ -1,11 +1,19 @@
-from fastapi import FastAPI
+import os
+from datetime import datetime, timezone
+from hmac import compare_digest
+
+from fastapi import Depends, FastAPI, Header, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.config import get_settings
-from app.db import engine
+from app.db import SessionLocal, engine
+from app.models import User
 from app.routes.investigations import router as investigations_router
+from app.queue import get_redis_connection
+from app.schemas import OAuthUserSync, UserRead
+from app.security import get_current_user, require_admin
 
 settings = get_settings()
 
@@ -23,7 +31,7 @@ app.add_middleware(
     allow_origins=settings.cors_origin_list,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 app.include_router(investigations_router)
 
@@ -39,3 +47,61 @@ def health() -> HealthResponse:
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
     return HealthResponse(status="ok", service="helixmind-api")
+
+
+@app.post("/api/v1/auth/sync", response_model=UserRead, tags=["authentication"])
+def sync_oauth_user(
+    payload: OAuthUserSync,
+    x_helixmind_auth_sync: str | None = Header(default=None),
+) -> UserRead:
+    """Persist a Google identity after NextAuth has completed provider verification."""
+    if not settings.auth_sync_secret or not x_helixmind_auth_sync or not compare_digest(
+        x_helixmind_auth_sync, settings.auth_sync_secret
+    ):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid identity sync request.")
+
+    email = payload.email.strip().lower()
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail="A valid email address is required.")
+
+    with SessionLocal() as session:
+        user = session.scalar(select(User).where(User.email == email))
+        if user is None:
+            user = User(email=email)
+            session.add(user)
+        user.name = payload.name.strip() if payload.name else user.name
+        user.image = payload.image
+        user.provider_account_id = payload.provider_account_id or user.provider_account_id
+        if email == settings.admin_email.strip().lower():
+            user.role = "ADMIN"
+        user.last_login_at = datetime.now(timezone.utc)
+        session.commit()
+        session.refresh(user)
+        return UserRead.model_validate(user, from_attributes=True)
+
+
+@app.get("/api/v1/me", response_model=UserRead, tags=["authentication"])
+def current_user(user: User = Depends(get_current_user)) -> UserRead:
+    return UserRead.model_validate(user, from_attributes=True)
+
+
+@app.get("/api/v1/admin/diagnostics", tags=["administration"])
+def admin_diagnostics(_: User = Depends(require_admin)) -> dict:
+    """Return redacted operational status only; never return environment values."""
+    redis_ok = False
+    try:
+        redis_ok = bool(get_redis_connection().ping())
+    except Exception:
+        redis_ok = False
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+    return {
+        "api": "ok",
+        "postgresql": "ok",
+        "redis": "ok" if redis_ok else "unavailable",
+        "omegaclaw": "configured-runtime",
+        "llm_providers": {
+            "primary": "gemini" if os.getenv("GEMINI_API_KEY") else "not-configured",
+            "fallback": "groq" if os.getenv("GROQ_API_KEY") else "not-configured",
+        },
+    }

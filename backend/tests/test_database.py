@@ -2,13 +2,15 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.literature import NormalizedPaper, persist_papers
-from app.models import Investigation, InvestigationPaper, Paper
+from app.models import Investigation, InvestigationPaper, Paper, User
 
 
 def test_investigation_can_be_inserted_and_retrieved() -> None:
     session = SessionLocal()
     try:
-        investigation = Investigation(question="Can CRISPR target HBB for sickle-cell disease?")
+        owner = session.scalar(select(User).where(User.email == "gethsun09@gmail.com"))
+        assert owner is not None
+        investigation = Investigation(owner_id=owner.id, question="Can CRISPR target HBB for sickle-cell disease?")
         session.add(investigation)
         session.flush()
 
@@ -25,7 +27,9 @@ def test_investigation_can_be_inserted_and_retrieved() -> None:
 def test_literature_papers_are_deduplicated_and_linked_to_an_investigation() -> None:
     session = SessionLocal()
     try:
-        investigation = Investigation(question="Can CRISPR target HBB for sickle-cell disease?")
+        owner = session.scalar(select(User).where(User.email == "gethsun09@gmail.com"))
+        assert owner is not None
+        investigation = Investigation(owner_id=owner.id, question="Can CRISPR target HBB for sickle-cell disease?")
         session.add(investigation)
         session.flush()
 
