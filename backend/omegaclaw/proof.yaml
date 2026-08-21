@@ -1,0 +1,28 @@
+# This configuration is only for the constrained, local OmegaClaw proof.
+# Credentials remain in /etc/helixmind/helixmind.env and are never placed here.
+# `OpenAIAPI` is OmegaClaw Core's official generic OpenAI-compatible selector.
+# Its final registered implementation is the HelixMind Gemini-primary/Groq-
+# fallback plugin declared in the private runtime plugin list.
+provider: OpenAIAPI
+commchannel: helixmind-proof
+maxNewInputLoops: 1
+maxWakeLoops: 0
+sleepInterval: 1
+wakeupInterval: 3600
+maxOutputToken: 1200
+reasoningMode: low
+
+# Avoid the unavailable local embedding model during this reasoning-only proof.
+# No knowledge-prior files are supplied, so Chroma initializes without calling
+# an embeddings API.
+embeddingprovider: OpenAI
+memoryDirectory: /tmp/helixmind-omegaclaw-proof
+securityPolicyPath: /opt/HelixMind/backend/omegaclaw/proof-policy.yaml
+
+# Gemini primary; Groq is attempted only for a failed or empty Gemini response.
+helixmind_gemini_api_key_env: GEMINI_API_KEY
+helixmind_gemini_base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+helixmind_gemini_model: gemini-2.5-flash
+helixmind_groq_api_key_env: GROQ_API_KEY
+helixmind_groq_base_url: https://api.groq.com/openai/v1
+helixmind_groq_model: openai/gpt-oss-20b

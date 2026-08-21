@@ -35,10 +35,56 @@ two premises are labeled as source facts in the MeTTa program; later literature
 ingestion will supply real provenance and evidence rather than hard-coded
 premises.
 
+## Constrained provider proof
+
+HelixMind now has a private OmegaClaw Python environment at
+`/opt/HelixMind/.runtime/omegaclaw-venv`. It contains the minimal official
+OmegaClaw runtime dependencies (`openai 2.38.0`, `chromadb 1.5.9`, and
+`py-landlock 0.1.1`) and is separate from the FastAPI virtual environment.
+
+The proof configuration and adapter are versioned in `backend/omegaclaw/`:
+
+| Role | Configuration |
+| --- | --- |
+| Primary LLM | Google Gemini via its OpenAI-compatible endpoint; model `gemini-2.5-flash`; key name `GEMINI_API_KEY` |
+| Fallback LLM | Groq via its OpenAI-compatible endpoint; model `openai/gpt-oss-20b`; key name `GROQ_API_KEY` |
+| OmegaClaw provider selector | Core's documented `OpenAIAPI` selector, overridden only in the private HelixMind proof plugin to add ordered failover |
+| Channel | One-shot in-process `helixmind-proof`; no listener, socket, or external chat channel |
+| Agent capability | Only a fixed, source-grounded `metta` call is accepted; shell, file, web, memory, and communication calls are rejected |
+
+Keys are sourced only from `/etc/helixmind/helixmind.env`; no key is stored in
+the repository, private runtime configuration, logs, or documentation.
+
+Run the constrained flagship proof with:
+
+```sh
+sudo -u helixmind backend/scripts/run_omegaclaw_flagship_proof.sh
+```
+
+Verified result through the real OmegaClaw agent loop and OmegaClaw Core NAL
+library:
+
+```text
+(((--> HBB SickleCellDisease) (stv 1.0 0.855))
+ ((--> SickleCellDisease HBB) (stv 1.0 0.4609164420485175)))
+```
+
+The requested Gemini model is configured as primary, but the live Gemini API
+currently returns HTTP 404 for `gemini-2.5-flash`; the proof therefore used
+the configured Groq fallback. This is a provider/model availability issue, not
+an authentication claim. Keep the fallback enabled until the selected Gemini
+model is available to the configured account.
+
+A small private-runtime compatibility patch makes the upstream prompt resolver
+use its default prompt because PeTTa turns a dynamic provider-specific prompt
+path into an invalid overlong path. It changes neither OmegaClaw reasoning nor
+its provider protocol. The patch is intentionally documented here because the
+private `.runtime/` directory is excluded from Git.
+
 ## Full agent-loop boundary
 
-OmegaClaw's full `omegaclaw` loop requires an LLM provider key and activates
-its configured communication, web, shell, and file skills. HelixMind does not
-start that loop until a dedicated provider configuration and restrictive
-runtime policy are in place. This is intentional: no mock planner or fake
-OmegaClaw orchestration is substituted for the real agent.
+The constrained proof starts the real `omegaclaw` loop under a hard Landlock
+policy and an in-process channel. It is not yet the production research agent:
+the literature-worker integration will expose only the skills required for
+planning, retrieval, evidence extraction, and MeTTa updates. No mock planner
+or fake OmegaClaw orchestration is substituted for the real agent.

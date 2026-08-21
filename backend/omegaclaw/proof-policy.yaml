@@ -1,0 +1,22 @@
+# Landlock policy for the one-shot proof. It excludes /etc/helixmind and all
+# application directories other than this project and its private runtime.
+version: 1
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /lib64
+    - /proc
+    - /dev/urandom
+    - /etc/ssl
+    - /etc/hosts
+    - /etc/resolv.conf
+    - /opt/HelixMind/.runtime
+    - /opt/HelixMind/backend/omegaclaw
+  read_write:
+    - /opt/HelixMind/.runtime/PeTTa/repos/OmegaClaw-Core/memory
+    - /tmp/helixmind-omegaclaw-proof
+    - /tmp/helixmind-omegaclaw-proof/chroma
+landlock:
+  compatibility: hard_requirement

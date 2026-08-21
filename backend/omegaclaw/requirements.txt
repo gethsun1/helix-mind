@@ -1,0 +1,4 @@
+# Private OmegaClaw agent runtime. Keep separate from the FastAPI venv.
+openai==2.38.0
+chromadb==1.5.9
+py-landlock==0.1.1
