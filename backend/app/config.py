@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     cors_origins: str = "https://helix-mind-green.vercel.app"
     database_url: str = "postgresql+psycopg:///helixmind"
     redis_url: str = "redis://127.0.0.1:6381/0"
+    literature_max_results: int = 10
+    literature_timeout_seconds: float = 20.0
+    ncbi_tool: str = "helixmind"
+    ncbi_email: str | None = None
 
     @property
     def cors_origin_list(self) -> list[str]:

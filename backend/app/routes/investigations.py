@@ -6,9 +6,9 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.jobs import start_investigation
-from app.models import Investigation, InvestigationEvent
+from app.models import Investigation, InvestigationEvent, InvestigationPaper, Paper
 from app.queue import get_research_queue
-from app.schemas import InvestigationCreate, InvestigationCreated, InvestigationEventRead, InvestigationRead
+from app.schemas import InvestigationCreate, InvestigationCreated, InvestigationEventRead, InvestigationRead, PaperRead
 
 router = APIRouter(prefix="/api/v1/investigations", tags=["investigations"])
 
@@ -65,6 +65,35 @@ def get_investigation_events(investigation_id: UUID) -> list[InvestigationEventR
                 timestamp=event.timestamp,
             )
             for event in events
+        ]
+    finally:
+        session.close()
+
+
+@router.get("/{investigation_id}/papers", response_model=list[PaperRead])
+def get_investigation_papers(investigation_id: UUID) -> list[PaperRead]:
+    session = SessionLocal()
+    try:
+        papers = session.scalars(
+            select(Paper)
+            .join(InvestigationPaper, InvestigationPaper.paper_id == Paper.id)
+            .where(InvestigationPaper.investigation_id == investigation_id)
+            .order_by(Paper.created_at.asc())
+        ).all()
+        return [
+            PaperRead(
+                id=paper.id,
+                source=paper.source,
+                external_id=paper.external_id,
+                title=paper.title,
+                abstract=paper.abstract,
+                authors=paper.authors,
+                publication_date=paper.publication_date,
+                doi=paper.doi,
+                url=paper.url,
+                metadata=paper.paper_metadata,
+            )
+            for paper in papers
         ]
     finally:
         session.close()

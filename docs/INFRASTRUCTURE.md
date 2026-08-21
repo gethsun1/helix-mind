@@ -19,3 +19,7 @@ provider credentials when configured and is never read into application logs.
 No HelixMind Nginx virtual host or TLS certificate has been created. This is
 deliberate: expose `helix-mind.duckdns.org` only after the first complete
 investigation vertical slice is verified locally.
+
+The worker now calls only the official PubMed and Europe PMC public APIs for
+its literature stage. It has no public listener and no change to the shared
+VPS routing configuration.

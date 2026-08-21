@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -24,3 +24,16 @@ class InvestigationRead(BaseModel):
     id: UUID
     question: str
     status: str
+
+
+class PaperRead(BaseModel):
+    id: UUID
+    source: str
+    external_id: str
+    title: str
+    abstract: str | None
+    authors: list | None
+    publication_date: date | None
+    doi: str | None
+    url: str | None
+    metadata: dict | None
