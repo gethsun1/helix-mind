@@ -17,7 +17,7 @@ def test_investigation_can_be_inserted_and_retrieved() -> None:
         stored = session.scalar(select(Investigation).where(Investigation.id == investigation.id))
 
         assert stored is not None
-        assert stored.status == "queued"
+        assert stored.status == "QUEUED"
         assert stored.question == investigation.question
     finally:
         session.rollback()

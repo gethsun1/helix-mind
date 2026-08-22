@@ -1,0 +1,17 @@
+provider: OpenAIAPI
+commchannel: helixmind-planning
+maxNewInputLoops: 1
+maxWakeLoops: 0
+sleepInterval: 1
+wakeupInterval: 3600
+maxOutputToken: 1200
+reasoningMode: low
+embeddingprovider: OpenAI
+memoryDirectory: /tmp/helixmind-omegaclaw-planning
+securityPolicyPath: /opt/HelixMind/backend/omegaclaw/planning-policy.yaml
+helixmind_gemini_api_key_env: GEMINI_API_KEY
+helixmind_gemini_base_url: https://generativelanguage.googleapis.com/v1beta/openai/
+helixmind_gemini_model: gemini-2.5-flash
+helixmind_groq_api_key_env: GROQ_API_KEY
+helixmind_groq_base_url: https://api.groq.com/openai/v1
+helixmind_groq_model: openai/gpt-oss-20b

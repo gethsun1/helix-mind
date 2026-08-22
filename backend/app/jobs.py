@@ -1,90 +1,75 @@
 import uuid
+from datetime import datetime, timezone
 
 from app.db import SessionLocal
-from app.literature import LiteratureClient, persist_papers
 from app.models import Investigation, InvestigationEvent
+from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
+
+
+def _event(session, investigation_id, event_type: str, message: str, metadata: dict | None = None) -> None:
+    session.add(
+        InvestigationEvent(
+            investigation_id=investigation_id,
+            event_type=event_type,
+            message=message,
+            event_metadata=metadata,
+        )
+    )
 
 
 def start_investigation(investigation_id: str) -> dict[str, str]:
-    """Advance a queued investigation to the real orchestration checkpoint.
-
-    OmegaClaw work is deliberately not simulated here. This job provides the
-    verified async boundary which the actual orchestrator will consume.
-    """
+    """Consume one queue item and advance it through real OmegaClaw planning."""
     session = SessionLocal()
     try:
         investigation = session.get(Investigation, uuid.UUID(investigation_id))
         if investigation is None:
             return {"status": "missing"}
-        if investigation.status != "queued":
+        if investigation.status.upper() != "QUEUED":
             return {"status": investigation.status}
 
-        investigation.status = "planning"
-        session.add(
-            InvestigationEvent(
-                investigation_id=investigation.id,
-                event_type="research_started",
-                message="Investigation accepted by the HelixMind research worker.",
-                event_metadata={"worker": "helixmind-worker"},
-            )
+        investigation.status = "PLANNING"
+        investigation.started_at = datetime.now(timezone.utc)
+        _event(session, investigation.id, "research_started", "Investigation accepted by the HelixMind research worker.", {"worker": "helixmind-worker"})
+        _event(session, investigation.id, "planning_started", "OmegaClaw is planning the research strategy.", {"orchestrator": "OmegaClaw"})
+        session.commit()
+        plan = run_research_planning(
+            title=investigation.title,
+            research_question=investigation.question,
+            domain=investigation.domain,
+        )
+        investigation.research_plan = plan
+        _event(
+            session,
+            investigation.id,
+            "planning_completed",
+            "OmegaClaw produced a structured research plan. Literature analysis has not started.",
+            {"orchestrator": plan.get("_metadata", {}).get("orchestrator"), "provider": plan.get("_metadata", {}).get("provider"), "model": plan.get("_metadata", {}).get("model")},
         )
         session.commit()
-
-        session.add(
-            InvestigationEvent(
-                investigation_id=investigation.id,
-                event_type="literature_search_started",
-                message="Searching official PubMed and Europe PMC APIs.",
-                event_metadata={"sources": ["pubmed", "europepmc"]},
+        return {"status": "PLANNING", "plan": "persisted"}
+    except OmegaClawPlanningError as error:
+        session.rollback()
+        investigation = session.get(Investigation, uuid.UUID(investigation_id))
+        if investigation is not None and investigation.status.upper() != "CANCELLED":
+            investigation.status = "FAILED"
+            investigation.error_message = str(error)
+            _event(session, investigation.id, "investigation_failed", str(error), {"category": error.category})
+            session.commit()
+        return {"status": "FAILED"}
+    except Exception:
+        session.rollback()
+        investigation = session.get(Investigation, uuid.UUID(investigation_id))
+        if investigation is not None and investigation.status.upper() != "CANCELLED":
+            investigation.status = "FAILED"
+            investigation.error_message = "The research worker encountered an unexpected error."
+            _event(
+                session,
+                investigation.id,
+                "investigation_failed",
+                "The research worker encountered an unexpected error.",
+                {"category": "SYSTEM_ERROR"},
             )
-        )
-        session.commit()
-
-        client = LiteratureClient()
-        try:
-            candidates, failures = client.search_all(investigation.question)
-        finally:
-            client.close()
-        papers = persist_papers(session, investigation.id, investigation.question, candidates)
-
-        if papers:
-            session.add(
-                InvestigationEvent(
-                    investigation_id=investigation.id,
-                    event_type="papers_found",
-                    message=f"Retrieved and normalized {len(papers)} distinct papers.",
-                    event_metadata={"count": len(papers), "source_failures": failures},
-                )
-            )
-            for paper in papers:
-                session.add(
-                    InvestigationEvent(
-                        investigation_id=investigation.id,
-                        event_type="paper_ingested",
-                        message=f"Ingested {paper.title}",
-                        event_metadata={"paper_id": str(paper.id), "source": paper.source, "external_id": paper.external_id},
-                    )
-                )
-        if failures:
-            session.add(
-                InvestigationEvent(
-                    investigation_id=investigation.id,
-                    event_type="literature_source_failed",
-                    message="One or more literature sources were unavailable; no results were fabricated.",
-                    event_metadata={"sources": failures},
-                )
-            )
-
-        investigation.status = "literature_ready"
-        session.add(
-            InvestigationEvent(
-                investigation_id=investigation.id,
-                event_type="literature_search_completed",
-                message="Literature retrieval stage completed with persisted source provenance.",
-                event_metadata={"papers": len(papers), "source_failures": failures},
-            )
-        )
-        session.commit()
-        return {"status": "literature_ready", "papers": str(len(papers))}
+            session.commit()
+        return {"status": "FAILED"}
     finally:
         session.close()

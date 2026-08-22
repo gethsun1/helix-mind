@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     auth_secret: str = ""
     auth_sync_secret: str = ""
     admin_email: str = "gethsun09@gmail.com"
+    omegaclaw_timeout_seconds: int = 900
 
     @property
     def cors_origin_list(self) -> list[str]:

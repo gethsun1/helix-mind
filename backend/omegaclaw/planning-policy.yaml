@@ -1,0 +1,23 @@
+# Landlock policy for the one-shot Phase 3B planning process. The worker runs
+# with PrivateTmp=true, so /tmp is private to this process and never exposes
+# the host's temporary files.
+version: 1
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /lib64
+    - /proc
+    - /dev/urandom
+    - /etc/ssl
+    - /etc/hosts
+    - /etc/resolv.conf
+    - /opt/HelixMind/.runtime
+    - /opt/HelixMind/backend/omegaclaw
+  read_write:
+    - /tmp
+    - /var/tmp
+    - /dev/shm
+landlock:
+  compatibility: hard_requirement

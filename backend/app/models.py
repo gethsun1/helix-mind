@@ -34,13 +34,17 @@ class Investigation(UUIDPrimaryKey, Base):
     __table_args__ = (Index("ix_investigations_status_created_at", "status", "created_at"),)
 
     owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False, default="Scientific investigation", server_default="Scientific investigation")
     question: Mapped[str] = mapped_column(Text, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    domain: Mapped[str] = mapped_column(String(64), nullable=False, default="biotechnology", server_default="biotechnology")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED", server_default="QUEUED")
     research_plan: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     synthesis: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class InvestigationEvent(UUIDPrimaryKey, Base):
