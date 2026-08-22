@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -60,18 +60,32 @@ class InvestigationEvent(UUIDPrimaryKey, Base):
 
 class Paper(UUIDPrimaryKey, Base):
     __tablename__ = "papers"
-    __table_args__ = (Index("ix_papers_source_external_id", "source", "external_id", unique=True),)
+    __table_args__ = (
+        Index("ix_papers_source_external_id", "source", "external_id", unique=True),
+        Index("ix_papers_doi_unique", "doi", unique=True, postgresql_where=text("doi IS NOT NULL")),
+        Index("ix_papers_pmid_unique", "pmid", unique=True, postgresql_where=text("pmid IS NOT NULL")),
+        Index("ix_papers_pmcid_unique", "pmcid", unique=True, postgresql_where=text("pmcid IS NOT NULL")),
+    )
 
     external_id: Mapped[str] = mapped_column(String(128), nullable=False)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     title: Mapped[str] = mapped_column(Text, nullable=False)
     abstract: Mapped[str | None] = mapped_column(Text, nullable=True)
     authors: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    journal: Mapped[str | None] = mapped_column(String(512), nullable=True)
     publication_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    publication_type: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    mesh_terms: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    keywords: Mapped[list | None] = mapped_column(JSONB, nullable=True)
     doi: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    pmid: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pmcid: Mapped[str | None] = mapped_column(String(64), nullable=True)
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
     paper_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class InvestigationPaper(UUIDPrimaryKey, Base):
@@ -85,7 +99,33 @@ class InvestigationPaper(UUIDPrimaryKey, Base):
     )
     paper_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("papers.id", ondelete="CASCADE"), nullable=False, index=True)
     source_query: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    research_search_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("research_searches.id", ondelete="SET NULL"), nullable=True, index=True)
+    relevance_score: Mapped[Decimal | None] = mapped_column(Numeric(6, 4), nullable=True)
+    relevance_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    discovered_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=func.now(), server_default=func.now(), nullable=False)
+    selected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ResearchSearch(UUIDPrimaryKey, Base):
+    __tablename__ = "research_searches"
+    __table_args__ = (
+        Index("ix_research_searches_investigation_executed", "investigation_id", "executed_at"),
+        Index("ix_research_searches_cache_key", "investigation_id", "source", "cache_key"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False)
+    query: Mapped[str] = mapped_column(Text, nullable=False)
+    filters: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    cache_key: Mapped[str] = mapped_column(String(512), nullable=False)
+    executed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
 class Entity(UUIDPrimaryKey, Base):

@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.db import SessionLocal, engine
 from app.models import User
 from app.routes.investigations import router as investigations_router
+from app.routes.literature import router as literature_router
 from app.queue import get_redis_connection
 from app.schemas import OAuthUserSync, UserRead
 from app.security import get_current_user, require_admin
@@ -34,6 +35,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 app.include_router(investigations_router)
+app.include_router(literature_router)
 
 
 class HealthResponse(BaseModel):

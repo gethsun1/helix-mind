@@ -94,14 +94,16 @@ def test_worker_persists_real_planning_result(monkeypatch) -> None:
         "_metadata": {"orchestrator": "OmegaClaw", "provider": "groq", "model": "test"},
     }
     monkeypatch.setattr(jobs, "run_research_planning", lambda **_: plan)
-    assert start_investigation(str(investigation_id)) == {"status": "PLANNING", "plan": "persisted"}
+    monkeypatch.setattr(jobs, "run_literature_pipeline", lambda session, investigation: {"paper_count": 0, "normalized_count": 0, "duplicates_removed": 0, "failures": {}, "partial": False})
+    result = start_investigation(str(investigation_id))
+    assert result["status"] == "COMPLETED"
     with SessionLocal() as session:
         investigation = session.get(Investigation, investigation_id)
         assert investigation is not None
-        assert investigation.status == "PLANNING"
+        assert investigation.status == "COMPLETED"
         assert investigation.research_plan == plan
         event_types = session.scalars(select(InvestigationEvent.event_type).where(InvestigationEvent.investigation_id == investigation_id)).all()
-        assert event_types == ["research_started", "planning_started", "planning_completed"]
+        assert event_types == ["research_started", "planning_started", "planning_completed", "literature_search_started"]
         session.delete(investigation)
         session.commit()
 

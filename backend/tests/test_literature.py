@@ -51,12 +51,13 @@ def test_real_api_clients_normalize_pubmed_and_europe_pmc_records() -> None:
     pubmed = client.search_pubmed("sickle-cell CRISPR")
     europe_pmc = client.search_europe_pmc("sickle-cell CRISPR")
 
-    assert pubmed[0].source == "pubmed"
+    assert pubmed[0].source == "PUBMED"
     assert pubmed[0].external_id == "12345"
     assert pubmed[0].doi == "10.1000/example"
     assert pubmed[0].authors == ["Researcher A"]
     assert "CRISPR" in pubmed[0].metadata["search_query"]
-    assert europe_pmc[0].source == "pubmed"
-    assert europe_pmc[0].external_id == "12345"
-    assert europe_pmc[0].metadata["source_records"] == ["europepmc"]
+    assert europe_pmc[0].source == "EUROPE_PMC"
+    assert europe_pmc[0].external_id == "pmc:PMC123"
+    assert europe_pmc[0].pmid == "12345"
+    assert europe_pmc[0].metadata["source_records"] == ["EUROPE_PMC"]
     assert "TITLE_ABS" in europe_pmc[0].metadata["search_query"]

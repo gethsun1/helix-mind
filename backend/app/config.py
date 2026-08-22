@@ -19,9 +19,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg:///helixmind"
     redis_url: str = "redis://127.0.0.1:6381/0"
     literature_max_results: int = 10
+    literature_page_size: int = 20
     literature_timeout_seconds: float = 20.0
+    literature_retries: int = 2
     ncbi_tool: str = "helixmind"
     ncbi_email: str | None = None
+    ncbi_api_key: str | None = None
     auth_secret: str = ""
     auth_sync_secret: str = ""
     admin_email: str = "gethsun09@gmail.com"

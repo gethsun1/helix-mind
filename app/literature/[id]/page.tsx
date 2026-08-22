@@ -1,0 +1,18 @@
+'use client';
+
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+
+import { ProtectedPage } from '../../components/ProtectedPage';
+
+type Paper = { id: string; source: string; sourceRecords: string[]; title: string; abstract: string | null; authors: string[] | null; journal: string | null; publicationDate: string | null; publicationType: string[] | null; language: string | null; meshTerms: string[] | null; keywords: string[] | null; doi: string | null; pmid: string | null; pmcid: string | null; url: string | null; relevanceScore: number | null; relevanceReason: string | null; sourceQuery: string | null; investigations: { id: string; title: string; relevanceScore: number | null; relevanceReason: string | null; rank: number | null; selected: boolean }[] };
+function date(value: string | null) { return value ? new Intl.DateTimeFormat(undefined, { dateStyle: 'long' }).format(new Date(value)) : 'Publication date unavailable'; }
+
+export default function PaperDetailPage() {
+  const { id } = useParams<{ id: string }>();
+  const [paper, setPaper] = useState<Paper | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => { fetch(`/api/backend/api/v1/papers/${id}`, { cache: 'no-store' }).then(async response => { if (!response.ok) throw new Error(response.status === 404 ? 'Paper not found.' : 'Paper could not be loaded.'); setPaper(await response.json()); }).catch(errorValue => setError(errorValue.message)); }, [id]);
+  return <ProtectedPage eyebrow="RESEARCH / LITERATURE / PAPER" title={paper?.title || 'Paper detail.'}><div className="paper-detail">{error ? <div className="panel"><p className="error-text">{error}</p></div> : !paper ? <div className="panel"><p>Loading paper…</p></div> : <><div className="panel"><div className="paper-card-top"><span className="source-label">{paper.sourceRecords.join(' · ')}</span>{paper.relevanceScore !== null && <span className="relevance-label">Relevance {Math.round(paper.relevanceScore * 100)}%</span>}</div><p className="paper-meta">{paper.authors?.join(', ') || 'Author information unavailable'} · {paper.journal || 'Journal unavailable'} · {date(paper.publicationDate)}</p><div className="paper-identifiers">{paper.doi && <span>DOI <b>{paper.doi}</b></span>}{paper.pmid && <span>PMID <b>{paper.pmid}</b></span>}{paper.pmcid && <span>PMCID <b>{paper.pmcid}</b></span>}{paper.url && <a href={paper.url} target="_blank" rel="noreferrer">Open original source ↗</a>}</div><h2>Source information</h2><p className="full-abstract">{paper.abstract || 'Abstract unavailable from source.'}</p>{paper.publicationType?.length ? <p className="paper-meta">Publication type: {paper.publicationType.join(', ')}</p> : null}{paper.meshTerms?.length ? <p className="paper-meta">MeSH terms: {paper.meshTerms.join(', ')}</p> : null}</div><div className="panel"><p className="eyebrow">INVESTIGATION CONTEXT</p><h2>Why this paper appears</h2>{paper.relevanceReason && <p className="interpretation-note">AI-assisted relevance interpretation: {paper.relevanceReason}</p>}{paper.sourceQuery && <div className="query-callout"><span>Search query used</span><code>{paper.sourceQuery}</code></div>}<div className="investigation-list">{paper.investigations.map(item => <Link href={`/investigations/${item.id}`} key={item.id}><span className="status-dot" /><div><b>{item.title}</b><small>Rank {item.rank ?? '—'} · relevance {item.relevanceScore !== null ? `${Math.round(item.relevanceScore * 100)}%` : 'not ranked'}</small></div><span>→</span></Link>)}</div></div></>}</div></ProtectedPage>;
+}
