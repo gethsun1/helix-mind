@@ -13,7 +13,7 @@ from app.models import User
 from app.routes.investigations import router as investigations_router
 from app.routes.literature import router as literature_router
 from app.queue import get_redis_connection
-from app.schemas import OAuthUserSync, UserRead
+from app.schemas import OAuthUserSync, UserProfileUpdate, UserRead
 from app.security import get_current_user, require_admin
 
 settings = get_settings()
@@ -66,16 +66,23 @@ def sync_oauth_user(
     if "@" not in email:
         raise HTTPException(status_code=422, detail="A valid email address is required.")
 
+    google_name = " ".join(payload.name.split()) if payload.name and payload.name.strip() else None
+    is_configured_admin = email == settings.admin_email.strip().lower()
+
     with SessionLocal() as session:
         user = session.scalar(select(User).where(User.email == email))
         if user is None:
-            user = User(email=email)
+            user = User(email=email, name=google_name, role="ADMIN" if is_configured_admin else "USER")
             session.add(user)
-        user.name = payload.name.strip() if payload.name else user.name
+        else:
+            # Google provides the initial display name; a user-edited name remains authoritative afterward.
+            user.email = email
+            if not user.name or not user.name.strip():
+                user.name = google_name
+            if is_configured_admin:
+                user.role = "ADMIN"
         user.image = payload.image
         user.provider_account_id = payload.provider_account_id or user.provider_account_id
-        if email == settings.admin_email.strip().lower():
-            user.role = "ADMIN"
         user.last_login_at = datetime.now(timezone.utc)
         session.commit()
         session.refresh(user)
@@ -85,6 +92,18 @@ def sync_oauth_user(
 @app.get("/api/v1/me", response_model=UserRead, tags=["authentication"])
 def current_user(user: User = Depends(get_current_user)) -> UserRead:
     return UserRead.model_validate(user, from_attributes=True)
+
+
+@app.patch("/api/v1/me", response_model=UserRead, tags=["authentication"])
+def update_current_user(payload: UserProfileUpdate, user: User = Depends(get_current_user)) -> UserRead:
+    with SessionLocal() as session:
+        stored_user = session.get(User, user.id)
+        if stored_user is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User account not found.")
+        stored_user.name = payload.display_name
+        session.commit()
+        session.refresh(stored_user)
+        return UserRead.model_validate(stored_user, from_attributes=True)
 
 
 @app.get("/api/v1/admin/diagnostics", tags=["administration"])

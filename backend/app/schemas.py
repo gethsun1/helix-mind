@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class InvestigationCreate(BaseModel):
@@ -93,6 +93,20 @@ class UserRead(BaseModel):
     role: str
     organization: str | None
     research_focus: str | None
+
+
+class UserProfileUpdate(BaseModel):
+    display_name: str = Field(alias="displayName", min_length=2, max_length=255)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_display_name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if len(value) < 2:
+            raise ValueError("display_name must contain at least 2 non-whitespace characters")
+        return value
 
 
 class OAuthUserSync(BaseModel):

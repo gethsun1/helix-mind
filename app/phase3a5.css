@@ -1,0 +1,370 @@
+/* Phase 3A.5: authenticated shell, profile completion, and responsive workspace. */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.drawer-close,
+.mobile-workspace-header,
+.nav-backdrop {
+  display: none;
+}
+
+.sidebar nav a.active {
+  background: #1f4a38;
+  color: #f2f2e6;
+}
+
+.profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #0b271db8;
+}
+
+.profile-dialog {
+  width: min(100%, 470px);
+  padding: 34px;
+  background: #f7f9f4;
+  border: 1px solid #d4e0d3;
+  border-radius: 6px;
+  box-shadow: 0 24px 80px #071e1452;
+}
+
+.profile-dialog h2 {
+  margin: 12px 0 8px;
+  color: var(--ink);
+  font: 500 30px/1.1 'Playfair Display';
+}
+
+.profile-dialog p:not(.eyebrow):not(.error-text) {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.profile-dialog label {
+  display: block;
+  margin: 24px 0 8px;
+  color: #53695a;
+  font: 10px 'DM Mono';
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.profile-dialog input {
+  width: 100%;
+  margin-top: 7px;
+  padding: 12px 13px;
+  border: 1px solid #cbd8cc;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ink);
+  font: 14px 'DM Sans';
+}
+
+.profile-dialog .button {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.profile-error {
+  margin: 9px 0 0;
+  color: var(--red) !important;
+  font-size: 11px !important;
+}
+
+.profile-form {
+  max-width: 600px;
+}
+
+.profile-form label {
+  display: block;
+  margin: 20px 0 8px;
+  color: #53695a;
+  font: 10px 'DM Mono';
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.profile-form input {
+  display: block;
+  width: 100%;
+  margin-top: 7px;
+  padding: 12px 13px;
+  border: 1px solid #cbd8cc;
+  border-radius: 3px;
+  background: #fbfdf9;
+  color: var(--ink);
+  font: 13px 'DM Sans';
+}
+
+.profile-form .button {
+  margin-top: 14px;
+}
+
+.profile-meta {
+  display: grid;
+  gap: 12px;
+  margin: 22px 0 25px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.profile-meta span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font: 9px 'DM Mono';
+  text-transform: uppercase;
+}
+
+.profile-meta strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.auth-status-error {
+  margin: -18px 0 22px;
+  color: var(--red);
+  font-size: 12px;
+}
+
+.success-text {
+  color: var(--green) !important;
+  font-size: 11px !important;
+}
+
+.role-loading {
+  opacity: .7;
+}
+
+@media (max-width: 900px) {
+  .sidebar {
+    width: 220px;
+  }
+
+  .page-wrap {
+    padding-right: 30px;
+    padding-left: 30px;
+  }
+
+  .dashboard-heading h1,
+  .page-wrap > h1,
+  .workspace-title h1 {
+    font-size: 42px;
+  }
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 70;
+    width: min(86vw, 320px);
+    max-height: 100dvh;
+    overflow-y: auto;
+    padding: 22px 18px;
+    transform: translateX(-105%);
+    transition: transform .2s ease;
+    box-shadow: 15px 0 45px #071e1440;
+  }
+
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .drawer-header .brand {
+    display: flex;
+  }
+
+  .drawer-close {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid #52745f;
+    border-radius: 4px;
+    background: transparent;
+    color: #f2f2e6;
+    font-size: 25px;
+    line-height: 1;
+  }
+
+  .sidebar-label {
+    margin-top: 42px;
+  }
+
+  .sidebar nav a {
+    padding: 13px 12px;
+    font-size: 13px;
+  }
+
+  .sidebar-foot,
+  .quiet-button {
+    font-size: 10px;
+  }
+
+  .nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    background: #071e1459;
+  }
+
+  .workspace-header {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    height: 64px;
+    padding: 0 18px;
+  }
+
+  .mobile-workspace-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .menu-toggle {
+    width: 38px;
+    height: 38px;
+    border: 1px solid #cbd8cc;
+    border-radius: 4px;
+    background: #fff;
+    color: var(--deep);
+    font-size: 20px;
+    line-height: 1;
+  }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--deep);
+  }
+
+  .mobile-brand span {
+    color: var(--gold);
+    font: 23px 'Playfair Display';
+  }
+
+  .mobile-brand strong {
+    font: 600 16px 'Playfair Display';
+  }
+
+  .desktop-workspace-label {
+    display: none;
+  }
+
+  .workspace-header .back-link {
+    margin-left: auto;
+    font-size: 10px;
+  }
+
+  .page-wrap {
+    padding: 30px 18px 65px;
+  }
+
+  .page-wrap > h1,
+  .dashboard-heading h1,
+  .workspace-title h1 {
+    font-size: clamp(32px, 10vw, 40px);
+    letter-spacing: -1px;
+  }
+
+  .dashboard-heading {
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+
+  .dashboard-heading p {
+    max-width: 34em;
+    line-height: 1.6;
+  }
+
+  .metric-grid {
+    gap: 8px;
+    margin-top: 0;
+  }
+
+  .metric-card {
+    min-width: 0;
+    padding: 14px 12px;
+  }
+
+  .metric-card b {
+    font-size: 25px;
+  }
+
+  .panel {
+    padding: 20px;
+  }
+
+  .panel h2 {
+    font-size: 22px;
+  }
+
+  .new-investigation .button,
+  .pagination .button {
+    max-width: 100%;
+  }
+
+  .investigation-list a {
+    align-items: flex-start;
+  }
+
+  .investigation-list a > span:last-child {
+    padding-top: 2px;
+  }
+
+  .profile-dialog {
+    padding: 26px 22px;
+  }
+}
+
+@media (max-width: 380px) {
+  .workspace-header {
+    padding: 0 12px;
+  }
+
+  .workspace-header .back-link {
+    max-width: 90px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .page-wrap {
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .panel {
+    padding: 16px;
+  }
+
+  .metric-card span {
+    font-size: 8px;
+    letter-spacing: .3px;
+  }
+}
