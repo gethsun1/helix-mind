@@ -189,3 +189,62 @@ class ResearchSearchRead(BaseModel):
     reused: bool
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeEntityRead(BaseModel):
+    id: UUID
+    canonical_name: str = Field(serialization_alias="canonicalName")
+    normalized_name: str = Field(serialization_alias="normalizedName")
+    entity_type: str = Field(serialization_alias="entityType")
+    aliases: list | None
+    description: str | None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeEvidenceRead(BaseModel):
+    id: UUID
+    paper_id: UUID | None = Field(serialization_alias="paperId")
+    evidence_type: str = Field(serialization_alias="evidenceType")
+    extracted_text: str = Field(serialization_alias="extractedText")
+    source_location: str = Field(serialization_alias="sourceLocation")
+    source_span: dict | None = Field(serialization_alias="sourceSpan")
+    section: str | None
+    extraction_timestamp: datetime = Field(serialization_alias="extractionTimestamp")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeClaimRead(BaseModel):
+    id: UUID
+    paper_id: UUID = Field(serialization_alias="paperId")
+    claim_text: str = Field(serialization_alias="claimText")
+    extraction_method: str = Field(serialization_alias="extractionMethod")
+    extraction_confidence: float | None = Field(serialization_alias="extractionConfidence")
+    evidence: list[KnowledgeEvidenceRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeRelationshipRead(BaseModel):
+    id: UUID
+    subject_entity_id: UUID = Field(serialization_alias="subjectEntityId")
+    predicate: str
+    object_entity_id: UUID = Field(serialization_alias="objectEntityId")
+    stance: str
+    claims: list[KnowledgeClaimRead] = Field(default_factory=list)
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeGraphRead(BaseModel):
+    nodes: list[dict]
+    edges: list[dict]
+
+
+class KnowledgeSummaryRead(BaseModel):
+    entities: int
+    claims: int
+    evidence: int
+    relationships: int
+    graph: KnowledgeGraphRead

@@ -103,7 +103,8 @@ def test_worker_persists_real_planning_result(monkeypatch) -> None:
         assert investigation.status == "COMPLETED"
         assert investigation.research_plan == plan
         event_types = session.scalars(select(InvestigationEvent.event_type).where(InvestigationEvent.investigation_id == investigation_id)).all()
-        assert event_types == ["research_started", "planning_started", "planning_completed", "literature_search_started"]
+        assert event_types[:4] == ["research_started", "planning_started", "planning_completed", "literature_search_started"]
+        assert event_types[-2:] == ["metta_validation_skipped", "knowledge_extraction_completed"]
         session.delete(investigation)
         session.commit()
 

@@ -48,7 +48,8 @@ does not imply that every future research capability is complete.
 | PubMed and Europe PMC | Implemented with real retrieval, normalization, PMID/DOI/PMCID deduplication, ranking, and provenance |
 | OmegaClaw planning | Implemented in the worker path, with controlled provider failure handling |
 | OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
-| Entity extraction, knowledge graph, evidence assessment, contradictions, hypotheses, synthesis, export | Not implemented; roadmap work |
+| Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
+| Scientific contradiction reasoning, hypotheses, synthesis, export | Not implemented; Phase 3E roadmap work |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
 ## Architecture
@@ -67,7 +68,7 @@ HelixMind FastAPI API
     │ owner-scoped investigation and literature routes
     ▼
 PostgreSQL ◄───────────────┐
-    │ users, investigations, events, papers, provenance
+    │ users, investigations, papers, evidence, claims, graph provenance
     │                        │
     └── queued job ──► Redis / RQ ──► HelixMind worker
                                       │
@@ -107,12 +108,18 @@ Question → investigation record → RQ queue → OmegaClaw plan
          → PubMed / Europe PMC retrieval → normalization → deduplication
          → persisted paper-to-investigation provenance and event trace
 
+Knowledge extraction → exact abstract evidence → claims/entities
+                    → explicit relationships → bounded graph → MeTTa validation
+
 VERIFIED SEPARATE PROOF
 Source-grounded facts → MeTTa representation → NAL/PLN deduction
 
+CURRENT KNOWLEDGE LAYER
+Abstract evidence → exact claims → entities → explicit relationships → graph
+
 NEXT RESEARCH LAYERS
-Evidence extraction → entities and knowledge graph → contradiction analysis
-→ hypotheses and knowledge gaps → confidence assessment → synthesis → export
+Contradiction analysis → hypotheses and knowledge gaps → confidence assessment
+→ synthesis → export
 ```
 
 The current worker can retrieve and persist source records; it does not yet
@@ -135,7 +142,7 @@ Europe PMC: (TITLE_ABS:"sickle cell disease") AND (TITLE_ABS:CRISPR OR TITLE_ABS
 
 Provider failures are recorded as controlled search failures; a successful
 source can be preserved when another source fails. No papers are fabricated.
-See [the literature pipeline](./docs/LITERATURE_PIPELINE.md).
+See [the literature pipeline](./docs/LITERATURE_PIPELINE.md) and [knowledge layer](./docs/KNOWLEDGE_LAYER.md).
 
 ## OmegaClaw, PeTTa, and MeTTa
 
@@ -210,13 +217,13 @@ are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ```text
 app/                    Next.js routes, protected workstation, and styles
-backend/app/            FastAPI routes, models, queue jobs, providers, pipeline
+backend/app/            FastAPI routes, models, queue jobs, literature/knowledge pipeline
 backend/migrations/     Alembic environment and versioned schema changes
 backend/omegaclaw/      constrained provider/channel and proof configuration
 backend/reasoning/      source-grounded MeTTa programs
 backend/tests/          API, database, literature, auth, and proof contracts
 deploy/                 HelixMind-only systemd, Redis, Nginx, and env examples
-docs/                   infrastructure, literature, runtime, and integration notes
+docs/                   literature, knowledge, runtime, infrastructure, integration notes
 ```
 
 ## Roadmap
@@ -235,11 +242,11 @@ docs/                   infrastructure, literature, runtime, and integration not
 - Deterministic normalization, PMID-first deduplication, persistence, and provenance
 - Authenticated search/detail APIs and responsive provenance-aware literature UI
 
-### In progress / next: Phase 3D — Knowledge layer
+### Completed: Phase 3D — Knowledge layer
 
-- Extract entities and relationships from source material
-- Persist inspectable knowledge/evidence graph structures
-- Connect graph views to investigation provenance
+- Deterministic abstract extraction with source-grounded claims and evidence
+- Provenance-preserving entities, relationships, and bounded graph APIs
+- Validated MeTTa projection through the private PeTTa runtime
 
 ### Phase 3E — Scientific reasoning
 

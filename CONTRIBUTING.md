@@ -47,9 +47,10 @@ git diff --check
 ```
 
 Tests cover authentication and ownership, database behavior, queue lifecycle,
-literature normalization/deduplication/provenance, and OmegaClaw/MeTTa proof
-contracts. Add regression tests with behavior changes. Documentation-only
-changes do not require production service restarts.
+literature normalization/deduplication/provenance, knowledge extraction,
+graph isolation, and OmegaClaw/MeTTa proof contracts. Add regression tests with
+behavior changes. Documentation-only changes do not require production service
+restarts.
 
 - **Frontend:** keep pages owner-aware, show API failures, and label planned
   graph/reasoning features as planned until backed by an API.
@@ -65,6 +66,13 @@ changes do not require production service restarts.
   source links explicit. A proof is not a production scientific claim.
 - **Reasoning and export:** preserve support, contradiction, uncertainty,
   derivation traces, identifiers, timestamps, and provenance.
+- **Knowledge layer:** extend the existing Entity/Claim/Evidence/Relationship
+  chain; keep every graph fact linked to a paper and exact evidence location.
+  Prefer high-precision deterministic extraction over unsupported recall.
+- **MeTTa:** treat PostgreSQL as canonical and MeTTa as a validated projection;
+  use the existing private runtime and retain provenance IDs in every fact.
+- **ERN-AI:** stop at the stored knowledge-event boundary. Do not add event
+  significance, confidence decay, or autonomous reasoning in Phase 3D work.
 
 ## Scientific and security principles
 

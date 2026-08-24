@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 from app.db import SessionLocal
 from app.literature_pipeline import LiteraturePipelineError, run_literature_pipeline
+from app.knowledge import extract_investigation_knowledge
 from app.models import Investigation, InvestigationEvent
 from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
 
@@ -54,10 +55,11 @@ def start_investigation(investigation_id: str) -> dict[str, object]:
         _event(session, investigation.id, "literature_search_started", "Literature search is beginning from the persisted OmegaClaw strategy.", {"sources": ["PUBMED", "EUROPE_PMC"]})
         session.commit()
         summary = run_literature_pipeline(session, investigation)
+        knowledge_summary = extract_investigation_knowledge(session, investigation)
         investigation.status = "COMPLETED"
         investigation.completed_at = datetime.now(timezone.utc)
         session.commit()
-        return {"status": "COMPLETED", "plan": "persisted", **summary}
+        return {"status": "COMPLETED", "plan": "persisted", **summary, "knowledge": knowledge_summary}
     except LiteraturePipelineError as error:
         session.rollback()
         investigation = session.get(Investigation, uuid.UUID(investigation_id))
