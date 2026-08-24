@@ -20,8 +20,9 @@ Europe PMC: (TITLE_ABS:"sickle cell disease") AND (TITLE_ABS:CRISPR OR TITLE_ABS
 ```
 
 This conservative query builder exists to avoid treating a natural-language
-question as valid database syntax. Later OmegaClaw planning will create and
-record richer multi-query research plans.
+question as valid database syntax. The worker records the OmegaClaw-generated
+structured research plan before running this stage; richer multi-query
+expansion remains future work.
 
 ## Verified local run
 

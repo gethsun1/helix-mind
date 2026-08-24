@@ -6,256 +6,262 @@
 
 <p align="center"><strong>An evidence-led scientific intelligence workstation for traceable research investigations.</strong></p>
 
-<p align="center">
-  <a href="./LICENSE">MIT License</a> ·
-  <a href="https://github.com/gethsun1/helix-mind/issues">Issues</a> ·
-  <a href="./docs/INFRASTRUCTURE.md">Infrastructure</a>
-</p>
+<p align="center"><a href="./LICENSE">MIT License</a> · <a href="https://github.com/gethsun1/helix-mind/issues">Issues</a> · <a href="./CONTRIBUTING.md">Contributing</a></p>
 
-> **Research software, not medical advice.** HelixMind supports literature
-> retrieval, evidence organisation, and transparent reasoning. It does not
-> provide clinical diagnoses, treatment recommendations, or validated medical
-> probabilities.
+> **Research software, not medical advice.** HelixMind organises research
+> information and transparent reasoning. It does not provide diagnoses,
+> treatment recommendations, or validated medical probabilities.
 
-## What is HelixMind?
+## Project proposition
 
-HelixMind turns a scientific question into a durable investigation record. It
-is designed so that literature, provenance, structured knowledge, reasoning,
-and the eventual synthesis remain inspectable rather than hidden behind a
-model response.
+HelixMind applies OmegaClaw/MeTTa reasoning to a practical scientific research
+workflow. A question becomes an owner-scoped investigation, an explicit
+research plan, a queued literature search, and a provenance-preserving record
+of source material.
 
-Its core principle is: **LLMs help plan, interpret, extract, and summarise;
-retrieved literature is the evidence source of truth.** MeTTa/NAL reasoning
-operates on explicit, source-grounded statements. A system confidence value is
-an evidence assessment, never a clinical probability.
+The flagship demonstration domain is biotechnology, especially CRISPR. CRISPR
+connects genetics, molecular biology, and medicine; it produces rich evidence
+relationships that are understandable in a public demonstration. The domain
+is a proving ground for traceable scientific reasoning, not a claim that
+HelixMind is a CRISPR-only or clinical system.
 
-## Verified capabilities
+The non-negotiable principle is: **retrieved literature is the evidence source
+of truth**. LLMs may help plan or interpret work, but generated text is not
+automatically evidence. Confidence values are evidence-system assessments, not
+clinical probabilities.
 
-| Capability | Status |
+## Current status
+
+This index reflects the repository and isolated runtime inspected on 2026-08-24.
+“Verified” means supported by source inspection, tests, or a live check; it
+does not imply that every future research capability is complete.
+
+| Area | Current status |
 | --- | --- |
-| Next.js scientific workstation UI | Implemented; deployed separately on Vercel |
-| FastAPI API and local health endpoint | Verified on `127.0.0.1:8401` |
-| Isolated PostgreSQL schema and Alembic migrations | Verified |
-| Isolated Redis queue and RQ worker | Verified |
-| Real PubMed and Europe PMC ingestion | Verified with the flagship question |
-| Paper normalization, PMID/DOI deduplication, provenance links | Verified |
-| OmegaClaw + PeTTa + MeTTa NAL proof | Verified in a constrained local runtime |
-| Evidence extraction, hypotheses, contradictions, graph, synthesis, export | Planned; not yet complete |
-| Public reverse proxy, TLS, Vercel API connection | Intentionally not configured yet |
+| Next.js 14 / TypeScript workstation | Implemented; Vercel frontend responds at `https://helix-mind-green.vercel.app/` |
+| FastAPI API | Implemented; live health check responds through the public HelixMind endpoint |
+| PostgreSQL / Alembic | Implemented with HelixMind migrations and scientific schema |
+| Redis / RQ | Implemented as isolated `helixmind-redis.service` and `helixmind-research` queue |
+| Google OAuth / NextAuth 4 | Implemented with persistent JWT session and backend identity sync |
+| User profiles and roles | Implemented; PostgreSQL is authoritative for researcher identity and USER/ADMIN role |
+| Investigation ownership | Implemented; API queries enforce owner scope, with explicit admin diagnostics access |
+| PubMed and Europe PMC | Implemented with real retrieval, normalization, PMID/DOI/PMCID deduplication, ranking, and provenance |
+| OmegaClaw planning | Implemented in the worker path, with controlled provider failure handling |
+| OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
+| Entity extraction, knowledge graph, evidence assessment, contradictions, hypotheses, synthesis, export | Not implemented; roadmap work |
+| Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
-The current literature stage returns actual API records and persists source
-metadata. It does not fabricate papers, claims, evidence scores, or medical
-conclusions.
-
-## System design
-
-```text
-                     ┌──────────────────────────────┐
-                     │       Next.js workstation     │
-                     │  question · activity · graph  │
-                     └──────────────┬───────────────┘
-                                    │ HTTPS (planned production route)
-                                    ▼
-                     ┌──────────────────────────────┐
-                     │          FastAPI API          │
-                     │  investigations · events      │
-                     └──────────────┬───────────────┘
-                                    │ enqueue
-                                    ▼
-                     ┌──────────────────────────────┐
-                     │      Redis + RQ worker        │
-                     │   isolated research jobs      │
-                     └───────┬───────────────┬───────┘
-                             │               │
-              real records  │               │ structured reasoning
-                             ▼               ▼
-         ┌───────────────────────┐  ┌───────────────────────┐
-         │ PubMed · Europe PMC   │  │ OmegaClaw · PeTTa      │
-         │ search · fetch · parse│  │ MeTTa · NAL / PLN      │
-         └───────────┬───────────┘  └───────────┬───────────┘
-                     │                          │
-                     └────────────┬─────────────┘
-                                  ▼
-                     ┌──────────────────────────────┐
-                     │          PostgreSQL           │
-                     │ investigations · papers       │
-                     │ evidence · entities · links   │
-                     └──────────────────────────────┘
-```
-
-### Evidence lifecycle
+## Architecture
 
 ```text
-Scientific question
-  → investigation queued
-  → literature plan and source search
-  → normalized, deduplicated papers with provenance
-  → evidence and entity extraction                 (next)
-  → source-grounded MeTTa knowledge                (next)
-  → NAL/PLN inferences and contradiction handling  (next)
-  → hypotheses, gaps, synthesis, graph, export     (next)
+PUBLIC CLIENT
+    │ HTTPS
+    ▼
+Next.js workstation on Vercel
+    │ NextAuth session + same-origin backend proxy
+    ▼
+Google OAuth / researcher identity sync
+    │ bearer session token
+    ▼
+HelixMind FastAPI API
+    │ owner-scoped investigation and literature routes
+    ▼
+PostgreSQL ◄───────────────┐
+    │ users, investigations, events, papers, provenance
+    │                        │
+    └── queued job ──► Redis / RQ ──► HelixMind worker
+                                      │
+                                      ├─ OmegaClaw research planning
+                                      ├─ PubMed / NCBI retrieval
+                                      └─ Europe PMC retrieval
+
+Separate constrained proof runtime:
+OmegaClaw Core → PeTTa → MeTTa → NAL/PLN proof
 ```
 
-## Architecture and isolation
+The API, worker, Redis instance, database identity, service user, logs, and
+reasoning runtime are HelixMind-specific. The VPS is shared with unrelated
+projects; see [the infrastructure boundary](./docs/INFRASTRUCTURE.md) before
+operating a deployment.
 
-HelixMind is an isolated tenant: it has its own service account, environment
-file, PostgreSQL database, Redis instance, RQ queue, log paths, and private
-reasoning runtime. The API and Redis bind only to loopback at this stage.
+### Authentication and authorization
 
-| Component | Implementation | Current boundary |
-| --- | --- | --- |
-| Frontend | Next.js 14 + TypeScript | Vercel deployment; API wiring pending |
-| API | FastAPI + Pydantic + SQLAlchemy | `127.0.0.1:8401` |
-| Database | PostgreSQL + Alembic | dedicated `helixmind` database/schema |
-| Async work | Redis + RQ | `helixmind-research`, Redis `127.0.0.1:6381` |
-| Literature | NCBI E-utilities; Europe PMC REST | official public APIs; source metadata stored |
-| Orchestration | OmegaClaw Core + PeTTa | private, constrained local proof runtime |
-| Reasoning | MeTTa NAL/PLN | source-grounded proof verified |
+Google verifies the external identity through NextAuth 4. NextAuth maintains a
+persistent JWT session and calls the backend identity-sync boundary using a
+server-side secret. FastAPI creates or updates the corresponding PostgreSQL
+user record. The configured administrator is assigned `ADMIN`; other users are
+`USER`.
 
-Read the [infrastructure boundary](./docs/INFRASTRUCTURE.md) before deploying
-on shared infrastructure.
+The PostgreSQL user record is authoritative for role and ownership. Protected
+API routes derive the current user from the bearer token, scope investigations
+and papers to that user, and allow administrative diagnostics only through a
+server-side role dependency. Client-supplied roles, ownership, or credentials
+are not trusted. Secrets and provider keys remain outside Git and are never
+documented here.
 
-## Literature pipeline
+### Research lifecycle
 
-HelixMind uses official sources, never a language model, to retrieve papers:
+```text
+CURRENT PRODUCT PATH
+Question → investigation record → RQ queue → OmegaClaw plan
+         → PubMed / Europe PMC retrieval → normalization → deduplication
+         → persisted paper-to-investigation provenance and event trace
 
-1. PubMed: NCBI ESearch identifies PMIDs; EFetch returns record XML.
-2. Europe PMC: the REST search endpoint returns core metadata.
-3. Records are normalized into title, abstract, authors, publication date,
-   DOI, URL, source metadata, and the exact source query.
-4. Canonical PMID and DOI identities prevent duplicate paper records.
-5. `investigation_papers` preserves paper-to-investigation provenance.
+VERIFIED SEPARATE PROOF
+Source-grounded facts → MeTTa representation → NAL/PLN deduction
 
-The flagship CRISPR/sickle-cell query is deliberately specific:
+NEXT RESEARCH LAYERS
+Evidence extraction → entities and knowledge graph → contradiction analysis
+→ hypotheses and knowledge gaps → confidence assessment → synthesis → export
+```
+
+The current worker can retrieve and persist source records; it does not yet
+turn abstracts into validated claims or autonomous scientific conclusions.
+
+## Literature layer
+
+The worker uses official APIs: PubMed ESearch/EFetch and Europe PMC REST search.
+Records are normalized into title, abstract, authors, publication date, DOI,
+PMID/PMCID, URL, source metadata, and the exact query. Canonical identifiers
+and fallback identity rules prevent duplicate paper records. The
+`investigation_papers` association retains the search and relevance context.
+
+The current deterministic flagship query is:
 
 ```text
 PubMed:     ("sickle cell disease"[Title/Abstract]) AND (CRISPR[Title/Abstract] OR "gene editing"[Title/Abstract])
 Europe PMC: (TITLE_ABS:"sickle cell disease") AND (TITLE_ABS:CRISPR OR TITLE_ABS:"gene editing")
 ```
 
-See [the complete literature pipeline](./docs/LITERATURE_PIPELINE.md).
+Provider failures are recorded as controlled search failures; a successful
+source can be preserved when another source fails. No papers are fabricated.
+See [the literature pipeline](./docs/LITERATURE_PIPELINE.md).
 
-## OmegaClaw and MeTTa
+## OmegaClaw, PeTTa, and MeTTa
 
-OmegaClaw is the planned research orchestrator; MeTTa is the structured
-knowledge and reasoning substrate. The repository includes a constrained proof
-harness that uses OmegaClaw Core's provider/plugin mechanism, a one-shot local
-channel, and a hard filesystem policy. It permits only a fixed,
-source-grounded MeTTa operation—not shell, filesystem, web, or remote-channel
-capabilities.
+The repository contains two distinct capabilities:
+
+1. The investigation worker invokes OmegaClaw-backed research planning and
+   persists the resulting structured plan. Provider errors are fail-closed and
+   do not leak credentials.
+2. A constrained local proof runs OmegaClaw Core's plugin/channel mechanism,
+   accepts one fixed MeTTa operation, and demonstrates an NAL deduction. It is
+   not yet a general autonomous research agent and is not equivalent to the
+   future evidence-reasoning layer.
+
+The proof uses configured Gemini first and Groq fallback. Provider credentials
+are environment-only. The verified proof output is an evidence-system truth
+value, not medical efficacy or clinical probability. See
+[the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
+
+## ERN-AI boundary proposal
+
+ERN-AI is not implemented or integrated. The proposed modular boundary is:
 
 ```text
-HBB → HbSVariant                     (stv 1.0, 0.95)
-HbSVariant → SickleCellDisease       (stv 1.0, 0.90)
-────────────────────────────────────────────────────
-HBB → SickleCellDisease              (stv 1.0, 0.855)
+Research event → event normalization → ERN-AI significance assessment
+               → frequency / strength → confidence → MeTTa representation
+               → NAL / PLN reasoning → research-state update
 ```
 
-Provider order is Gemini `gemini-2.5-flash`, then Groq
-`openai/gpt-oss-20b`. The configured Gemini model currently returns HTTP 404
-for the configured account, so the verified proof used the Groq fallback. No
-provider key is committed. See [OmegaClaw runtime notes](./docs/OMEGACLAW_RUNTIME.md).
+Details are in [docs/ERN_AI_INTEGRATION.md](./docs/ERN_AI_INTEGRATION.md).
 
-## API
+## API surface
 
-The local API prefix is `/api/v1`.
+The API prefix is `/api/v1`; protected routes require the authenticated bearer
+session. Important routes include:
 
-| Endpoint | Description |
+| Route | Purpose |
 | --- | --- |
-| `GET /health` | Checks API and PostgreSQL readiness |
-| `POST /investigations` | Creates and queues an investigation |
-| `GET /investigations/{id}` | Reads investigation status |
-| `GET /investigations/{id}/events` | Returns the traceable event stream |
-| `GET /investigations/{id}/papers` | Returns papers linked to the investigation |
+| `GET /health` | API and PostgreSQL readiness |
+| `POST /auth/sync` | Server-side NextAuth identity synchronization |
+| `GET/PATCH /me` | Current researcher profile |
+| `POST/GET /investigations` | Create and list owner-scoped investigations |
+| `GET /investigations/{id}` | Investigation plan, status, and event trace |
+| `GET /investigations/{id}/papers` | Paginated owner-scoped papers |
+| `GET /investigations/{id}/searches` | Source search records and status |
+| `GET /papers/{id}` | Paper detail and investigation provenance |
+| `GET /literature/search` | Search the authenticated user's corpus |
+| `GET /admin/diagnostics` | Redacted diagnostics for administrators |
 
-```bash
-curl --json '{
-  "question": "Investigate whether CRISPR-based genetic intervention represents a scientifically supported therapeutic strategy for sickle-cell disease."
-}' http://127.0.0.1:8401/api/v1/investigations
-```
+## Development
 
-The request returns immediately as `queued`; the worker performs retrieval
-asynchronously.
-
-## Local development
-
-### Prerequisites
-
-- Node.js 20+
-- Python 3.12+
-- PostgreSQL 16+
-- Redis 7+
-- Dedicated, non-production database and Redis instances
-
-### Frontend
+Prerequisites are Node.js 20+, Python 3.12+, PostgreSQL, and Redis. Use
+dedicated non-production database and queue resources.
 
 ```bash
 npm install
 npm run dev
-```
 
-### Backend
-
-```bash
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
-
 cd backend
-PYTHONPATH=./ ../.venv/bin/alembic -c alembic.ini upgrade head
-PYTHONPATH=./ ../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8401
+PYTHONPATH=. ../.venv/bin/alembic -c alembic.ini upgrade head
+PYTHONPATH=. ../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8401
+PYTHONPATH=. ../.venv/bin/rq worker --url redis://127.0.0.1:6381/0 helixmind-research
 ```
 
-Run the worker in another terminal after configuring an isolated Redis URL:
-
-```bash
-cd backend
-PYTHONPATH=./ ../.venv/bin/rq worker --url redis://127.0.0.1:6381/0 helixmind-research
-```
-
-Run tests:
-
-```bash
-PYTHONPATH=backend .venv/bin/pytest -q -p no:cacheprovider backend/tests
-```
-
-The optional OmegaClaw/PeTTa/MeTTa runtime is separate from FastAPI. Its
-private dependencies are listed in
-[`backend/omegaclaw/requirements.txt`](./backend/omegaclaw/requirements.txt).
-Never commit provider keys.
+Run backend tests from `backend/` with `PYTHONPATH=.`. The full contributor
+workflow, migration rules, scientific data principles, and PR expectations
+are in [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Repository guide
 
 ```text
-app/                    Next.js workstation
-backend/app/            FastAPI API, models, queue worker, literature client
-backend/migrations/     Alembic migrations
-backend/omegaclaw/      constrained provider and MeTTa proof configuration
+app/                    Next.js routes, protected workstation, and styles
+backend/app/            FastAPI routes, models, queue jobs, providers, pipeline
+backend/migrations/     Alembic environment and versioned schema changes
+backend/omegaclaw/      constrained provider/channel and proof configuration
 backend/reasoning/      source-grounded MeTTa programs
-backend/tests/          API, database, literature, and reasoning tests
-deploy/                 isolated service and Redis templates
-docs/                   architecture, infrastructure, and pipeline records
+backend/tests/          API, database, literature, auth, and proof contracts
+deploy/                 HelixMind-only systemd, Redis, Nginx, and env examples
+docs/                   infrastructure, literature, runtime, and integration notes
 ```
 
 ## Roadmap
 
-- [x] Isolated API, PostgreSQL, Redis, and worker foundation
-- [x] Real PubMed and Europe PMC ingestion with provenance
-- [x] Constrained OmegaClaw → provider → MeTTa/NAL proof
-- [ ] OmegaClaw research-plan integration into worker jobs
-- [ ] Evidence extraction and supporting/contradictory assessment
-- [ ] MeTTa knowledge updates from retrieved evidence
-- [ ] Hypotheses, gaps, contradiction detection, and synthesis
-- [ ] Live workspace, graph, and MeTTa transparency in Next.js
-- [ ] Obsidian-compatible investigation export
-- [ ] Nginx, TLS, and Vercel API configuration after local end-to-end validation
+### Completed
 
-## Contributing
+- Isolated API, PostgreSQL, Redis, RQ worker, and migration foundation
+- Google/NextAuth identity flow, persistent sessions, profiles, roles, and ownership
+- Investigation planning lifecycle and traceable event stream
+- Real PubMed and Europe PMC ingestion with normalization and provenance
+- Constrained OmegaClaw/PeTTa/MeTTa NAL proof
 
-Contributions are welcome. For substantial changes, open an issue first; keep
-secrets out of Git, add or update tests, and preserve provenance for every
-scientific assertion. Do not present confidence values as clinical
-probabilities.
+### In progress / next: Phase 3C — Literature layer
+
+- Broaden source strategy while preserving deterministic normalization
+- Improve retrieval observability and source-specific metadata
+- Establish the evidence-ready contract for downstream reasoning
+
+### Phase 3D — Knowledge layer
+
+- Extract entities and relationships from source material
+- Persist inspectable knowledge/evidence graph structures
+- Connect graph views to investigation provenance
+
+### Phase 3E — Scientific reasoning
+
+- Supporting and contradictory evidence
+- Hypotheses, knowledge gaps, confidence semantics, and synthesis
+- Transparent MeTTa/NAL/PLN updates and exports
+
+### Future / experimental tracks
+
+- ERN-AI event-processing adapter and research-state signals
+- Obsidian, Markdown, and structured report export
+- Additional literature providers and domain adapters
+- Rich graph and reasoning visualizations
+
+## How to contribute
+
+Start with [CONTRIBUTING.md](./CONTRIBUTING.md), then consult the focused
+design notes for [literature](./docs/LITERATURE_PIPELINE.md),
+[OmegaClaw runtime](./docs/OMEGACLAW_RUNTIME.md),
+[infrastructure](./docs/INFRASTRUCTURE.md), and the
+[ERN-AI proposal](./docs/ERN_AI_INTEGRATION.md). Use a focused branch and PR;
+do not commit directly to `main`.
 
 ## License
 
