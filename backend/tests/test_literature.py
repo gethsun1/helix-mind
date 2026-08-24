@@ -1,7 +1,7 @@
 import httpx
 
 from app.config import Settings
-from app.literature import LiteratureClient
+from app.literature import EUROPE_PMC, LiteratureClient, _clean_doi, _clean_pmcid, _clean_pmid
 
 
 PUBMED_XML = b"""<?xml version='1.0' encoding='UTF-8'?>
@@ -56,8 +56,19 @@ def test_real_api_clients_normalize_pubmed_and_europe_pmc_records() -> None:
     assert pubmed[0].doi == "10.1000/example"
     assert pubmed[0].authors == ["Researcher A"]
     assert "CRISPR" in pubmed[0].metadata["search_query"]
+    assert pubmed[0].metadata["source_identifiers"]["PUBMED"] == "12345"
     assert europe_pmc[0].source == "EUROPE_PMC"
     assert europe_pmc[0].external_id == "pmc:PMC123"
     assert europe_pmc[0].pmid == "12345"
     assert europe_pmc[0].metadata["source_records"] == ["EUROPE_PMC"]
+    assert europe_pmc[0].metadata["source_identifiers"]["EUROPE_PMC"] == "PMC123"
     assert "TITLE_ABS" in europe_pmc[0].metadata["search_query"]
+
+
+def test_identifier_normalization_and_provider_registry() -> None:
+    assert _clean_doi("https://doi.org/10.1000/Example") == "10.1000/example"
+    assert _clean_pmid("pmid:12345") == "12345"
+    assert _clean_pmcid("pmc:PMC123") == "PMC123"
+    client = LiteratureClient(settings=Settings(), client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200))))
+    assert set(client.providers) == {"PUBMED", EUROPE_PMC}
+    client.close()

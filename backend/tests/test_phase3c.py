@@ -45,6 +45,14 @@ def test_deduplication_prefers_identifier_hierarchy() -> None:
     assert set(unique[0].metadata["source_records"]) == {PUBMED, EUROPE_PMC}
 
 
+def test_deduplication_prefers_pmid_before_doi() -> None:
+    first = _candidate(PUBMED, "12345", doi="10.1000/first", pmid="12345")
+    second = _candidate(EUROPE_PMC, "pmc:PMC123", doi="10.1000/second", pmid="12345")
+    unique, removed = deduplicate_papers([first, second])
+    assert removed == 1
+    assert unique[0].pmid == "12345"
+
+
 def test_literature_pipeline_persists_searches_links_and_rank(monkeypatch) -> None:
     from app import literature_pipeline
 
@@ -128,6 +136,8 @@ def test_authenticated_paginated_paper_api_and_detail(monkeypatch) -> None:
         detail = client.get(f"/api/v1/papers/{paper_id}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["investigations"][0]["title"] == "Paper API test"
+        assert detail.json()["provenance"][0]["query"] == "CRISPR[Title/Abstract]"
+        assert detail.json()["provenance"][0]["retrievalStatus"] == "UNKNOWN"
     finally:
         with SessionLocal() as session:
             investigation = session.get(Investigation, investigation_id)

@@ -229,13 +229,13 @@ docs/                   infrastructure, literature, runtime, and integration not
 - Real PubMed and Europe PMC ingestion with normalization and provenance
 - Constrained OmegaClaw/PeTTa/MeTTa NAL proof
 
-### In progress / next: Phase 3C — Literature layer
+### Completed: Phase 3C — Literature layer
 
-- Broaden source strategy while preserving deterministic normalization
-- Improve retrieval observability and source-specific metadata
-- Establish the evidence-ready contract for downstream reasoning
+- Provider abstraction for PubMed and Europe PMC
+- Deterministic normalization, PMID-first deduplication, persistence, and provenance
+- Authenticated search/detail APIs and responsive provenance-aware literature UI
 
-### Phase 3D — Knowledge layer
+### In progress / next: Phase 3D — Knowledge layer
 
 - Extract entities and relationships from source material
 - Persist inspectable knowledge/evidence graph structures

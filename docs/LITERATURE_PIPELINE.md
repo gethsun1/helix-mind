@@ -7,10 +7,18 @@ HelixMind retrieves scientific literature from official public APIs only:
 | PubMed / NCBI | ESearch, then EFetch XML | PMID, DOI where supplied |
 | Europe PMC | REST `search` with `resultType=core` | Europe PMC source/id, or canonical PMID where present |
 
-`app.literature.LiteratureClient` normalizes title, abstract, authors,
-publication date, DOI, URL, source metadata, and the exact search query. It
-does not invent records. `investigation_papers` preserves the many-to-many
-provenance between an investigation and each persisted paper.
+`app.literature.LiteratureClient` exposes a provider registry implementing the
+`LiteratureProvider` contract. The current `PubMed` and `Europe PMC` adapters
+normalize title, abstract, authors, publication date, DOI/PMID/PMCID, URLs,
+publication metadata, source metadata, and the exact search query. They do not
+invent records. `investigation_papers` plus `research_searches` preserve the
+many-to-many provenance between an investigation and each persisted paper.
+
+Canonical papers are deduplicated in PMID, DOI, PMCID, provider-ID order, with
+a conservative title/author/year fallback. A paper may retain multiple source
+records while remaining one canonical database row. Paper detail exposes the
+investigation, query, provider ID, retrieval timestamp, source URL, and search
+status for each provenance entry.
 
 For the flagship question, the deterministic pre-planning query is:
 
@@ -27,11 +35,14 @@ expansion remains future work.
 ## Verified local run
 
 On 2026-08-21, a local `POST /api/v1/investigations` for the flagship question
-reached `literature_ready` through the RQ worker. The worker retrieved and
+completed through the RQ worker. The worker retrieved and
 persisted 18 distinct papers with no PubMed or Europe PMC source failures.
 The investigation event stream recorded `literature_search_started`,
 `papers_found`, one `paper_ingested` event per persisted paper, and
 `literature_search_completed`.
 
-The stage retrieves and persists evidence sources only. It does not yet infer
-claims, score evidence, or treat paper titles/abstracts as clinical truth.
+The stage retrieves and persists evidence sources only. It emits structured
+investigation events for search start/completion/failure, normalization,
+deduplication, persistence, and final completion. It does not yet infer claims,
+score evidence, or treat paper titles/abstracts as clinical truth. MeTTa and
+ERN-AI consume a future normalized event boundary; neither is implemented here.

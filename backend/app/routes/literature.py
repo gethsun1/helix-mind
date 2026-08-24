@@ -54,6 +54,9 @@ def _paper_read(paper: Paper, association: InvestigationPaper | None = None) -> 
         pmid=paper.pmid,
         pmcid=paper.pmcid,
         url=paper.url,
+        full_text_url=paper.full_text_url,
+        publisher_identifier=paper.publisher_identifier,
+        journal_metadata=paper.journal_metadata,
         metadata=metadata,
         retrieved_at=paper.retrieved_at,
         created_at=paper.created_at,
@@ -143,9 +146,29 @@ def paper_detail(paper_id: UUID, user: User = Depends(get_current_user)) -> Pape
             association_query = association_query.where(Investigation.owner_id == user.id)
         associations = session.execute(association_query).all()
         result = _paper_read(paper, associations[0][0] if associations else None)
+        searches = {row.id: row for row in session.scalars(select(ResearchSearch).where(ResearchSearch.id.in_([association.research_search_id for association, _ in associations if association.research_search_id]))).all()}
+        provenance = []
+        paper_metadata = paper.paper_metadata if isinstance(paper.paper_metadata, dict) else {}
+        source_identifiers = paper_metadata.get("source_identifiers") if isinstance(paper_metadata.get("source_identifiers"), dict) else {}
+        for association, title in associations:
+            search = searches.get(association.research_search_id)
+            source = association.source or paper.source
+            provenance.append({
+                "investigationId": str(association.investigation_id),
+                "investigationTitle": title,
+                "source": source,
+                "providerId": source_identifiers.get(source) or paper.external_id,
+                "sourceUrl": paper.url,
+                "query": association.source_query,
+                "retrievedAt": paper.retrieved_at,
+                "discoveredAt": association.discovered_at,
+                "retrievalStatus": search.status if search else "UNKNOWN",
+                "searchId": str(search.id) if search else None,
+            })
         return PaperDetailRead(
             **result.model_dump(),
             investigations=[PaperInvestigationRead(id=association.id, title=title, relevance_score=float(association.relevance_score) if association.relevance_score is not None else None, relevance_reason=association.relevance_reason, rank=association.rank, selected=association.selected) for association, title in associations],
+            provenance=provenance,
         )
     finally:
         session.close()

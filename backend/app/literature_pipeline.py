@@ -35,7 +35,8 @@ def _paper_candidate(paper: Paper, source: str, query: str) -> NormalizedPaper:
         source=source, external_id=paper.external_id, title=paper.title, abstract=paper.abstract, authors=paper.authors or [],
         publication_date=paper.publication_date, doi=paper.doi, url=paper.url, metadata=metadata, journal=paper.journal,
         pmid=paper.pmid, pmcid=paper.pmcid, publication_type=paper.publication_type or [], language=paper.language,
-        mesh_terms=paper.mesh_terms or [], keywords=paper.keywords or [],
+        mesh_terms=paper.mesh_terms or [], keywords=paper.keywords or [], publisher_identifier=paper.publisher_identifier,
+        full_text_url=paper.full_text_url, journal_metadata=paper.journal_metadata or {},
     )
 
 
@@ -82,7 +83,10 @@ def run_literature_pipeline(session: Session, investigation: Investigation) -> d
             _event(session, investigation.id, "pubmed_search_started" if source == PUBMED else "europe_pmc_search_started", f"{source} search started.", {"query": query, "search_id": str(search.id)})
             session.commit()
             try:
-                result = client.search_pubmed_result(query, filters=filters) if source == PUBMED else client.search_europe_pmc_result(query, filters=filters)
+                if hasattr(client, "search_provider"):
+                    result = client.search_provider(source, query, filters=filters)
+                else:  # Compatibility seam for deterministic test doubles.
+                    result = client.search_pubmed_result(query, filters=filters) if source == PUBMED else client.search_europe_pmc_result(query, filters=filters)
                 search = session.get(ResearchSearch, search.id)
                 assert search is not None
                 search.status = "SUCCEEDED"

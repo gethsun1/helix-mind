@@ -7,7 +7,7 @@ import time
 import xml.etree.ElementTree as element_tree
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
-from typing import Any, Callable
+from typing import Any, Callable, Protocol
 
 import httpx
 from sqlalchemy import or_, select
@@ -46,6 +46,9 @@ class NormalizedPaper:
     language: str | None = None
     mesh_terms: list[str] = field(default_factory=list)
     keywords: list[str] = field(default_factory=list)
+    publisher_identifier: str | None = None
+    full_text_url: str | None = None
+    journal_metadata: dict[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         source = self.source.upper().replace("EUROPEPMC", EUROPE_PMC)
@@ -58,6 +61,15 @@ class SourceSearchResult:
     query: str
     papers: list[NormalizedPaper]
     total_count: int
+
+
+class LiteratureProvider(Protocol):
+    """Provider contract for source retrieval and normalization."""
+
+    source: str
+
+    def search(self, query: str, *, page: int = 1, page_size: int | None = None, filters: dict[str, Any] | None = None) -> SourceSearchResult:
+        ...
 
 
 def _text(node: element_tree.Element | None) -> str | None:
@@ -98,11 +110,35 @@ def _clean_doi(value: str | None) -> str | None:
     return cleaned or None
 
 
+def _clean_pmid(value: Any) -> str | None:
+    cleaned = _clean_identifier(value)
+    return cleaned.removeprefix("pmid:").strip() if cleaned else None
+
+
+def _clean_pmcid(value: Any) -> str | None:
+    cleaned = _clean_identifier(value)
+    if not cleaned:
+        return None
+    return cleaned.removeprefix("pmcid:").removeprefix("pmc:").strip().upper()
+
+
 def _clean_identifier(value: Any) -> str | None:
     if value is None:
         return None
     cleaned = str(value).strip()
     return cleaned or None
+
+
+def _europe_full_text_url(record: dict[str, Any]) -> str | None:
+    values = record.get("fullTextUrlList", {}).get("fullTextUrl", []) if isinstance(record.get("fullTextUrlList"), dict) else []
+    if not isinstance(values, list):
+        return None
+    for item in values:
+        if isinstance(item, dict):
+            url = _clean_identifier(item.get("url"))
+            if url:
+                return url
+    return None
 
 
 def build_pubmed_query(plan_query: str) -> str:
@@ -130,7 +166,7 @@ def build_europe_pmc_query(plan_query: str) -> str:
 
 
 def _pubmed_article(article: element_tree.Element) -> NormalizedPaper | None:
-    pmid = _text(article.find(".//PMID"))
+    pmid = _clean_pmid(_text(article.find(".//PMID")))
     title = _text(article.find(".//ArticleTitle"))
     if not pmid or not title:
         return None
@@ -154,7 +190,7 @@ def _pubmed_article(article: element_tree.Element) -> NormalizedPaper | None:
 
     identifiers = {node.attrib.get("IdType", "").lower(): _text(node) for node in article.findall(".//ArticleId")}
     doi = _clean_doi(identifiers.get("doi"))
-    pmcid = _clean_identifier(identifiers.get("pmc"))
+    pmcid = _clean_pmcid(identifiers.get("pmc"))
     pub_date = article.find(".//Article/Journal/JournalIssue/PubDate")
     year = _text(pub_date.find("Year")) if pub_date is not None else None
     month = _text(pub_date.find("Month")) if pub_date is not None else None
@@ -163,6 +199,15 @@ def _pubmed_article(article: element_tree.Element) -> NormalizedPaper | None:
     if publication_date is None:
         publication_date = _parse_date(_text(pub_date.find("MedlineDate")) if pub_date is not None else None)
     journal = _text(article.find(".//Article/Journal/Title"))
+    journal_metadata = {
+        key: value for key, value in {
+            "issn": _text(article.find(".//Article/Journal/ISSN")),
+            "volume": _text(article.find(".//Article/Journal/JournalIssue/Volume")),
+            "issue": _text(article.find(".//Article/Journal/JournalIssue/Issue")),
+        }.items() if value
+    }
+    full_text_url = f"https://pmc.ncbi.nlm.nih.gov/articles/{pmcid}/" if pmcid else None
+    publisher_identifier = _clean_identifier(identifiers.get("pii")) or _clean_identifier(identifiers.get("publisherid"))
     publication_types = [_text(node) for node in article.findall(".//PublicationTypeList/PublicationType")]
     languages = [_text(node) for node in article.findall(".//Language")]
     mesh_terms = [_text(node) for node in article.findall(".//MeshHeading/DescriptorName")]
@@ -176,7 +221,7 @@ def _pubmed_article(article: element_tree.Element) -> NormalizedPaper | None:
         publication_date=publication_date,
         doi=doi,
         url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
-        metadata={"pmid": pmid, "source_records": [PUBMED]},
+        metadata={"pmid": pmid, "source_records": [PUBMED], "source_identifiers": {PUBMED: pmid}},
         journal=journal,
         pmid=pmid,
         pmcid=pmcid,
@@ -184,6 +229,9 @@ def _pubmed_article(article: element_tree.Element) -> NormalizedPaper | None:
         language=languages[0] if languages and languages[0] else None,
         mesh_terms=[item for item in mesh_terms if item],
         keywords=[item for item in keywords if item],
+        publisher_identifier=publisher_identifier,
+        full_text_url=full_text_url,
+        journal_metadata=journal_metadata,
     )
 
 
@@ -191,11 +239,13 @@ def _europe_pmc_article(record: dict[str, Any]) -> NormalizedPaper | None:
     title = str(record.get("title") or "").strip()
     source_id = _clean_identifier(record.get("id"))
     source_name = str(record.get("source") or "").strip().upper()
-    pmid = _clean_identifier(record.get("pmid"))
+    pmid = _clean_pmid(record.get("pmid"))
     if not title or not source_id:
         return None
-    pmcid = source_id if source_name == "PMC" or source_id.upper().startswith("PMC") else _clean_identifier(record.get("pmcid"))
+    pmcid = _clean_pmcid(source_id) if source_name == "PMC" or source_id.upper().startswith("PMC") else _clean_pmcid(record.get("pmcid"))
     journal = _clean_identifier(record.get("journalTitle"))
+    journal_metadata = {key: record[key] for key in ("journalIssn", "journalVolume", "issue") if record.get(key)}
+    full_text_url = _europe_full_text_url(record)
     publication_types = record.get("pubType") or record.get("publicationType") or []
     if isinstance(publication_types, str):
         publication_types = [item.strip() for item in publication_types.split(";") if item.strip()]
@@ -212,13 +262,16 @@ def _europe_pmc_article(record: dict[str, Any]) -> NormalizedPaper | None:
         publication_date=_parse_date(record.get("firstPublicationDate") or record.get("firstIndexDate")),
         doi=_clean_doi(record.get("doi")),
         url=f"https://europepmc.org/article/{source_name.lower()}/{source_id}",
-        metadata={"europe_pmc_id": source_id, "europe_pmc_source": source_name, "source_records": [EUROPE_PMC]},
+        metadata={"europe_pmc_id": source_id, "europe_pmc_source": source_name, "source_records": [EUROPE_PMC], "source_identifiers": {EUROPE_PMC: source_id}},
         journal=journal,
         pmid=pmid,
         pmcid=pmcid,
         publication_type=[str(item).strip() for item in publication_types if str(item).strip()],
         language=_clean_identifier(record.get("language")),
         keywords=[str(item).strip() for item in keywords if str(item).strip()],
+        publisher_identifier=_clean_identifier(record.get("publisherId")),
+        full_text_url=full_text_url,
+        journal_metadata=journal_metadata,
     )
 
 
@@ -227,6 +280,10 @@ class LiteratureClient:
         self.settings = settings or get_settings()
         self.client = client or httpx.Client(timeout=self.settings.literature_timeout_seconds, follow_redirects=True)
         self._owns_client = client is None
+        self.providers: dict[str, LiteratureProvider] = {
+            PUBMED: PubMedProvider(self),
+            EUROPE_PMC: EuropePMCProvider(self),
+        }
 
     def close(self) -> None:
         if self._owns_client:
@@ -331,6 +388,34 @@ class LiteratureClient:
                 failures[source] = type(error).__name__
         return papers, failures
 
+    def search_provider(self, source: str, query: str, *, page: int = 1, page_size: int | None = None, filters: dict[str, Any] | None = None) -> SourceSearchResult:
+        """Search a registered provider without coupling callers to its API."""
+        normalized_source = source.upper().replace("EUROPEPMC", EUROPE_PMC)
+        provider = self.providers.get(normalized_source)
+        if provider is None:
+            raise LiteratureError(f"Unsupported literature provider: {source}.")
+        return provider.search(query, page=page, page_size=page_size, filters=filters)
+
+
+class PubMedProvider:
+    source = PUBMED
+
+    def __init__(self, client: LiteratureClient) -> None:
+        self.client = client
+
+    def search(self, query: str, *, page: int = 1, page_size: int | None = None, filters: dict[str, Any] | None = None) -> SourceSearchResult:
+        return self.client.search_pubmed_result(query, page=page, page_size=page_size, filters=filters)
+
+
+class EuropePMCProvider:
+    source = EUROPE_PMC
+
+    def __init__(self, client: LiteratureClient) -> None:
+        self.client = client
+
+    def search(self, query: str, *, page: int = 1, page_size: int | None = None, filters: dict[str, Any] | None = None) -> SourceSearchResult:
+        return self.client.search_europe_pmc_result(query, page=page, page_size=page_size, filters=filters)
+
 
 def build_search_strategy(research_plan: dict[str, Any], research_question: str) -> dict[str, str]:
     """Derive reproducible source queries from the persisted OmegaClaw plan."""
@@ -395,10 +480,10 @@ def _fallback_key(candidate: NormalizedPaper) -> str:
 
 
 def _identity_key(candidate: NormalizedPaper) -> str:
-    if candidate.doi:
-        return f"doi:{candidate.doi}"
     if candidate.pmid:
         return f"pmid:{candidate.pmid}"
+    if candidate.doi:
+        return f"doi:{candidate.doi}"
     if candidate.pmcid:
         return f"pmcid:{candidate.pmcid.lower()}"
     europe_id = candidate.metadata.get("europe_pmc_id")
@@ -420,6 +505,9 @@ def _merge_candidates(primary: NormalizedPaper, duplicate: NormalizedPaper) -> N
     primary.language = primary.language or duplicate.language
     primary.mesh_terms = primary.mesh_terms or duplicate.mesh_terms
     primary.keywords = primary.keywords or duplicate.keywords
+    primary.publisher_identifier = primary.publisher_identifier or duplicate.publisher_identifier
+    primary.full_text_url = primary.full_text_url or duplicate.full_text_url
+    primary.journal_metadata = primary.journal_metadata or duplicate.journal_metadata
     primary.metadata.update({key: value for key, value in duplicate.metadata.items() if value is not None and key not in {"source_records"}})
     if primary.pmid and duplicate.source == PUBMED:
         primary.source = PUBMED
@@ -455,7 +543,7 @@ def _find_existing(session: Session, candidate: NormalizedPaper) -> Paper | None
     possible = session.scalars(select(Paper).where(Paper.title == candidate.title)).all()
     candidate_key = _fallback_key(candidate)
     for paper in possible:
-        other = NormalizedPaper(PUBMED, paper.external_id, paper.title, paper.abstract, paper.authors or [], paper.publication_date, paper.doi, paper.url, paper.paper_metadata or [], pmid=paper.pmid, pmcid=paper.pmcid)
+        other = NormalizedPaper(PUBMED, paper.external_id, paper.title, paper.abstract, paper.authors or [], paper.publication_date, paper.doi, paper.url, paper.paper_metadata or {}, pmid=paper.pmid, pmcid=paper.pmcid)
         if _fallback_key(other) == candidate_key:
             return paper
     return None
@@ -480,6 +568,9 @@ def persist_papers(session: Session, investigation_id: object, search_query: str
                 language=candidate.language,
                 mesh_terms=candidate.mesh_terms,
                 keywords=candidate.keywords,
+                publisher_identifier=candidate.publisher_identifier,
+                full_text_url=candidate.full_text_url,
+                journal_metadata=candidate.journal_metadata,
                 doi=candidate.doi,
                 pmid=candidate.pmid,
                 pmcid=candidate.pmcid,
@@ -503,6 +594,9 @@ def persist_papers(session: Session, investigation_id: object, search_query: str
             existing.language = existing.language or candidate.language
             existing.mesh_terms = existing.mesh_terms or candidate.mesh_terms
             existing.keywords = existing.keywords or candidate.keywords
+            existing.publisher_identifier = existing.publisher_identifier or candidate.publisher_identifier
+            existing.full_text_url = existing.full_text_url or candidate.full_text_url
+            existing.journal_metadata = existing.journal_metadata or candidate.journal_metadata
             existing.doi = existing.doi or candidate.doi
             existing.pmid = existing.pmid or candidate.pmid
             existing.pmcid = existing.pmcid or candidate.pmcid

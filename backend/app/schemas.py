@@ -133,6 +133,9 @@ class PaperRead(BaseModel):
     pmid: str | None
     pmcid: str | None
     url: str | None
+    full_text_url: str | None = Field(default=None, serialization_alias="fullTextUrl")
+    publisher_identifier: str | None = Field(default=None, serialization_alias="publisherIdentifier")
+    journal_metadata: dict | None = Field(default=None, serialization_alias="journalMetadata")
     metadata: dict | None
     retrieved_at: datetime = Field(serialization_alias="retrievedAt")
     created_at: datetime = Field(serialization_alias="createdAt")
@@ -161,6 +164,7 @@ class PaperInvestigationRead(BaseModel):
 
 class PaperDetailRead(PaperRead):
     investigations: list[PaperInvestigationRead] = Field(default_factory=list)
+    provenance: list[dict] = Field(default_factory=list)
 
 
 class PaperPage(BaseModel):
