@@ -351,3 +351,62 @@ class ReasoningSummaryRead(BaseModel):
     items: list[ReasoningRead]
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class InvestigationRunRead(BaseModel):
+    id: UUID
+    investigation_id: UUID = Field(serialization_alias="investigationId")
+    parent_run_id: UUID | None = Field(default=None, serialization_alias="parentRunId")
+    run_number: int = Field(serialization_alias="runNumber")
+    status: str
+    code_version: str = Field(serialization_alias="codeVersion")
+    schema_version: str = Field(serialization_alias="schemaVersion")
+    plan_hash: str | None = Field(default=None, serialization_alias="planHash")
+    input_manifest: dict | None = Field(default=None, serialization_alias="inputManifest")
+    provider_metadata: dict | None = Field(default=None, serialization_alias="providerMetadata")
+    error_message: str | None = Field(default=None, serialization_alias="errorMessage")
+    started_at: datetime | None = Field(default=None, serialization_alias="startedAt")
+    completed_at: datetime | None = Field(default=None, serialization_alias="completedAt")
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+    snapshot_id: UUID | None = Field(default=None, serialization_alias="snapshotId")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class InvestigationSnapshotCreate(BaseModel):
+    run_id: UUID | None = Field(default=None, alias="runId")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ResearchSnapshotRead(BaseModel):
+    id: UUID
+    investigation_id: UUID = Field(serialization_alias="investigationId")
+    run_id: UUID = Field(serialization_alias="runId")
+    created_by_user_id: UUID | None = Field(default=None, serialization_alias="createdByUserId")
+    snapshot_number: int = Field(serialization_alias="snapshotNumber")
+    schema_version: str = Field(serialization_alias="schemaVersion")
+    formula_version: str | None = Field(default=None, serialization_alias="formulaVersion")
+    metta_digest: str | None = Field(default=None, serialization_alias="mettaDigest")
+    manifest_digest: str = Field(serialization_alias="manifestDigest")
+    manifest: dict
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ResearchArtifactRead(BaseModel):
+    id: UUID
+    snapshot_id: UUID = Field(serialization_alias="snapshotId")
+    artifact_type: str = Field(serialization_alias="artifactType")
+    artifact_format: str = Field(serialization_alias="artifactFormat")
+    status: str
+    generator_version: str = Field(serialization_alias="generatorVersion")
+    schema_version: str = Field(serialization_alias="schemaVersion")
+    content_digest: str | None = Field(default=None, serialization_alias="contentDigest")
+    manifest_digest: str = Field(serialization_alias="manifestDigest")
+    metadata: dict | None = None
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

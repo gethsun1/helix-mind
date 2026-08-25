@@ -58,6 +58,74 @@ class InvestigationEvent(UUIDPrimaryKey, Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class InvestigationRun(UUIDPrimaryKey, Base):
+    """Immutable execution identity for one investigation attempt."""
+
+    __tablename__ = "investigation_runs"
+    __table_args__ = (
+        UniqueConstraint("investigation_id", "run_number", name="uq_investigation_runs_number"),
+        Index("ix_investigation_runs_investigation_created", "investigation_id", "created_at"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    parent_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigation_runs.id", ondelete="SET NULL"), nullable=True, index=True)
+    run_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="QUEUED", server_default="QUEUED")
+    code_version: Mapped[str] = mapped_column(String(128), nullable=False, default="unknown", server_default="unknown")
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False, default="phase4a-1", server_default="phase4a-1")
+    plan_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    input_manifest: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    provider_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class ResearchSnapshot(UUIDPrimaryKey, Base):
+    """Immutable manifest of one investigation run and its source graph."""
+
+    __tablename__ = "research_snapshots"
+    __table_args__ = (
+        UniqueConstraint("investigation_id", "snapshot_number", name="uq_research_snapshots_number"),
+        UniqueConstraint("run_id", name="uq_research_snapshots_run"),
+        Index("ix_research_snapshots_investigation_created", "investigation_id", "created_at"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_runs.id", ondelete="RESTRICT"), nullable=False, index=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    snapshot_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False, default="phase4a-1", server_default="phase4a-1")
+    formula_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    metta_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    manifest_digest: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    manifest: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ResearchArtifact(UUIDPrimaryKey, Base):
+    """Registry contract for a future artifact generated from a snapshot."""
+
+    __tablename__ = "research_artifacts"
+    __table_args__ = (
+        UniqueConstraint("snapshot_id", "artifact_type", "artifact_format", "generator_version", name="uq_research_artifacts_contract"),
+        Index("ix_research_artifacts_snapshot_created", "snapshot_id", "created_at"),
+    )
+
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("research_snapshots.id", ondelete="CASCADE"), nullable=False)
+    artifact_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_format: Mapped[str] = mapped_column(String(32), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PLANNED", server_default="PLANNED")
+    generator_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False, default="phase4a-1", server_default="phase4a-1")
+    content_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    manifest_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Paper(UUIDPrimaryKey, Base):
     __tablename__ = "papers"
     __table_args__ = (

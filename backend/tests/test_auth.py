@@ -62,6 +62,8 @@ def test_normal_user_cannot_access_admin_or_another_users_investigation(monkeypa
             "knowledge/entities",
             "knowledge/claims",
             "knowledge/relationships",
+            "runs",
+            "snapshots",
         ):
             assert client.get(f"/api/v1/investigations/{investigation_id}/{suffix}", headers=headers).status_code == 404
     finally:

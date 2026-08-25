@@ -50,6 +50,7 @@ does not imply that every future research capability is complete.
 | OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
 | Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
 | Scientific evidence reasoning, hypotheses, contradictions, gaps, traces | Implemented additively in Phase 3E; deterministic source-linked aggregation |
+| Phase 4A reproducibility foundation | Implemented; run lineage, immutable hashed snapshots, reruns, comparisons, and owner-scoped APIs |
 | Obsidian export / ERN-AI ingestion | Planned; no speculative dependency added |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
@@ -241,6 +242,10 @@ session. Important routes include:
 | `GET /investigations/{id}/knowledge-gaps` | Evidence deficiencies and research opportunities |
 | `GET /investigations/{id}/reasoning` | Reasoning summary and persisted results |
 | `GET /investigations/{id}/reasoning/trace` | Inspectable proposition-to-result traces |
+| `GET/POST /investigations/{id}/runs` | Owner-scoped run lineage and queued reproducible reruns |
+| `GET/POST /investigations/{id}/snapshots` | Immutable run snapshots and source manifests |
+| `GET /investigations/{id}/snapshots/compare` | Deterministic comparison of two snapshots |
+| `GET /investigations/{id}/snapshots/{snapshot}/artifacts` | Future artifact contracts for a snapshot |
 | `GET /papers/{id}` | Paper detail and investigation provenance |
 | `GET /literature/search` | Search the authenticated user's corpus |
 | `GET /admin/diagnostics` | Redacted diagnostics for administrators |
@@ -310,14 +315,45 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - MeTTa representation and PeTTa validation for the Phase 3E reasoning facts
 - Asynchronous worker lifecycle, persisted reasoning events, protected APIs,
   and investigation/hypothesis/knowledge graph visualizations
-- Phase 3E regression and end-to-end corpus tests; 27 backend tests passing
+- Phase 3E regression and end-to-end corpus tests; 36 backend tests passing
 
-### Future / experimental tracks
+### Completed: Phase 4A — Reproducibility foundation
 
-- ERN-AI event-processing adapter and research-state signals
-- Obsidian, Markdown, and structured report export
-- Additional literature providers and domain adapters
-- Broader semantic extraction and richer graph/reasoning visualizations
+- Investigation run lineage with parent/child reruns, lifecycle status, and
+  code, schema, plan, and provider metadata
+- Immutable SHA-256 hashed snapshots containing the complete source, evidence,
+  reasoning, event, formula, and MeTTa projection manifest
+- Owner-scoped run, snapshot, comparison, and artifact-registry APIs
+- Automatic run creation and snapshot freezing for completed worker jobs;
+  reruns preserve earlier snapshots without destructive mutation
+- Deterministic snapshot comparisons for added, removed, and changed records,
+  provider metadata, formula versions, and manifest digests
+
+### Roadmap — pending Phase 4 work
+
+- **Phase 4B — Research artifacts:** Markdown, structured scientific report,
+  and Obsidian vault exports with citation-complete provenance and artifact
+  generation/download
+- **Phase 4C — Scientific UX:** research-progress timeline, evidence explorer,
+  confidence/provenance indicators, Hypothesis Lab, knowledge-gap views, and
+  responsive loading, empty, error, and mobile states
+- **Phase 4D — Knowledge Graph 2.0:** typed and filterable graph queries,
+  provenance-aware expansion and drill-down, snapshot-aware views, and an
+  accessible table/list fallback
+- **Phase 4E — Literature Intelligence 2.0:** Crossref and OpenAlex adapters,
+  conservative identifier resolution, citation and author metadata, date
+  filtering, and stronger deduplication
+- **Phase 4F — Semantic extraction pilot:** versioned shadow-mode extraction,
+  entity normalization, candidate claim/proposition review, semantic
+  similarity, and contradiction candidates while retaining the deterministic
+  baseline
+- **Phase 4G — Domain adapters:** register CRISPR as the first adapter, then
+  validate medicine, climate science, and materials-science fixtures
+- **Phase 4H — Inference observability:** provider/model, latency, usage,
+  retry, fallback, failure, health, and cost metadata with secret redaction
+- **Reserved ERN-AI track:** evaluate as an optional upstream attention and
+  prioritization adapter; it is not a Phase 4 core dependency or source of
+  scientific truth
 
 ## How to contribute
 

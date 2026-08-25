@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.jobs import start_investigation
-from app.models import Investigation, InvestigationEvent, User
+from app.models import Investigation, InvestigationEvent, InvestigationRun, User
 from app.queue import get_research_queue
 from app.schemas import (
     InvestigationCancelResponse,
@@ -150,6 +150,10 @@ def cancel_investigation(investigation_id: UUID, user: User = Depends(get_curren
             raise HTTPException(status_code=409, detail="Only queued investigations can be cancelled.")
         investigation.status = "CANCELLED"
         investigation.updated_at = datetime.now(timezone.utc)
+        queued_run = session.scalar(select(InvestigationRun).where(InvestigationRun.investigation_id == investigation.id, InvestigationRun.status == "QUEUED").order_by(InvestigationRun.run_number.desc()).limit(1))
+        if queued_run is not None:
+            queued_run.status = "CANCELLED"
+            queued_run.completed_at = datetime.now(timezone.utc)
         session.add(
             InvestigationEvent(
                 investigation_id=investigation.id,
