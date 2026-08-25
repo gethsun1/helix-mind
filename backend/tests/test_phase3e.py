@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.knowledge import extract_investigation_knowledge
-from app.models import Contradiction, Evidence, Hypothesis, Investigation, InvestigationPaper, KnowledgeGap, Paper, Proposition, User
+from app.models import Contradiction, Evidence, Hypothesis, Inference, Investigation, InvestigationPaper, KnowledgeGap, Paper, Proposition, User
 from app.scientific_reasoning import aggregate_evidence, contradiction_type, evidence_polarity, transitive_support
 
 
@@ -63,6 +63,9 @@ def test_phase3e_persists_propositions_hypotheses_contradictions_gaps_and_trace(
             assert session.scalar(select(Contradiction).where(Contradiction.investigation_id == investigation_id)) is not None
             assert session.scalar(select(KnowledgeGap).where(KnowledgeGap.investigation_id == investigation_id)) is not None
             assert session.scalar(select(Evidence).where(Evidence.investigation_id == investigation_id, Evidence.polarity == "CONTRADICTS")) is not None
+            inference = session.scalar(select(Inference).join(Hypothesis, Inference.hypothesis_id == Hypothesis.id).where(Hypothesis.investigation_id == investigation_id))
+            assert inference is not None
+            assert len(inference.inference_metadata["relationships_applied"]) == 2
     finally:
         with SessionLocal() as session:
             investigation = session.get(Investigation, investigation_id)

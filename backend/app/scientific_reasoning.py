@@ -15,7 +15,7 @@ from decimal import Decimal
 from typing import Any, Iterable
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.knowledge_metta import render_investigation_metta, validate_metta_text
 from app.models import (
@@ -167,8 +167,20 @@ def _proposition_description(proposition: Proposition) -> str:
 def _relationship_ids(session: Session, proposition: Proposition) -> list[str]:
     subject = normalize_proposition_part(proposition.subject)
     object_name = normalize_proposition_part(proposition.object)
-    rows = session.scalars(select(Relationship).where(Relationship.investigation_id == proposition.investigation_id, Relationship.predicate == proposition.predicate)).all()
-    return [str(row.id) for row in rows if str(row.subject_entity_id) == subject or str(row.object_entity_id) == object_name]
+    subject_entity = aliased(Entity)
+    object_entity = aliased(Entity)
+    rows = session.scalars(
+        select(Relationship.id)
+        .join(subject_entity, Relationship.subject_entity_id == subject_entity.id)
+        .join(object_entity, Relationship.object_entity_id == object_entity.id)
+        .where(
+            Relationship.investigation_id == proposition.investigation_id,
+            Relationship.predicate == proposition.predicate,
+            subject_entity.normalized_name == subject,
+            object_entity.normalized_name == object_name,
+        )
+    ).all()
+    return [str(row) for row in rows]
 
 
 def run_scientific_reasoning(session: Session, investigation: Investigation) -> dict[str, int | float | str]:

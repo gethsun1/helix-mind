@@ -55,9 +55,9 @@ checked through `/v1/models` because provider catalogues can change.
 
 The ASI embedding adapter currently defaults to `BAAI/bge-base-en-v1.5`. It
 returns vectors with provider/model, credential-slot, latency, and input-count
-metadata so a future Phase 3E retrieval component can persist deterministic
-source associations. Phase 3D does not add a vector database or replace its
-canonical PostgreSQL provenance graph.
+metadata for future retrieval consumers. The current Phase 3E reasoning path
+does not use embeddings, add a vector database, or replace the canonical
+PostgreSQL provenance graph.
 
 ## Diagnostics and testing
 

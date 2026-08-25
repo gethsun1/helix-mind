@@ -50,6 +50,20 @@ def test_normal_user_cannot_access_admin_or_another_users_investigation(monkeypa
         assert client.get("/api/v1/admin/diagnostics", headers=headers).status_code == 403
         assert client.get(f"/api/v1/investigations/{investigation_id}", headers=headers).status_code == 404
         assert client.get("/api/v1/investigations", headers=headers).json() == []
+        for suffix in (
+            "evidence",
+            "hypotheses",
+            "contradictions",
+            "knowledge-gaps",
+            "reasoning",
+            "reasoning/trace",
+            "knowledge",
+            "knowledge/graph",
+            "knowledge/entities",
+            "knowledge/claims",
+            "knowledge/relationships",
+        ):
+            assert client.get(f"/api/v1/investigations/{investigation_id}/{suffix}", headers=headers).status_code == 404
     finally:
         with SessionLocal() as session:
             user = session.get(User, outsider_id)

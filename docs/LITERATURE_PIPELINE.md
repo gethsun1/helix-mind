@@ -41,8 +41,11 @@ The investigation event stream recorded `literature_search_started`,
 `papers_found`, one `paper_ingested` event per persisted paper, and
 `literature_search_completed`.
 
-The stage retrieves and persists evidence sources only. It emits structured
+The literature stage retrieves and persists source records and emits structured
 investigation events for search start/completion/failure, normalization,
-deduplication, persistence, and final completion. It does not yet infer claims,
-score evidence, or treat paper titles/abstracts as clinical truth. MeTTa and
-ERN-AI consume a future normalized event boundary; neither is implemented here.
+deduplication, persistence, and final completion. Downstream Phase 3D/3E
+stages extract exact abstract claims/evidence and, only where an explicit
+relationship is present, structured propositions and deterministic evidence
+states. Neither stage treats paper titles/abstracts as clinical truth. MeTTa
+validation is a downstream representation boundary; ERN-AI remains a future
+proposal and is not implemented here.

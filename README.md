@@ -165,8 +165,13 @@ remain future boundaries. See [the Phase 3E design note](./docs/SCIENTIFIC_REASO
 
 The live verification corpus contained 18 genuine retrieved papers and
 produced 192 source-linked evidence records, 22 propositions, 22 hypotheses
-and reasoning traces, and 6 knowledge gaps. No contradictory evidence was
-identified in that corpus, and none was fabricated for demonstration.
+and 22 reasoning traces, and 6 knowledge gaps. No contradictory evidence was
+identified in that corpus, and none was fabricated for demonstration. The 192
+evidence records include 19 linked to explicit propositions; 173 remain
+source-grounded claims/evidence without a supported deterministic relationship
+and therefore are not promoted into hypotheses. See the [Phase 3E audit](./docs/PHASE_3E_REASONING_AUDIT.md)
+for the provenance, confidence, contradiction, inference-provider, and
+evaluation-gate findings.
 
 ## Literature layer
 
