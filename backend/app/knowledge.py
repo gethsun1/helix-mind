@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.knowledge_extraction import DeterministicKnowledgeExtractor, claim_hash, normalize_claim, normalize_entity_name
 from app.knowledge_metta import render_investigation_metta, validate_metta_text
-from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Investigation, InvestigationEvent, InvestigationPaper, Paper, Relationship, RelationshipClaim
+from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Hypothesis, Investigation, InvestigationEvent, InvestigationPaper, KnowledgeGap, Paper, Proposition, Relationship, RelationshipClaim
+from app.scientific_reasoning import evidence_polarity, normalize_proposition_part, proposition_key
 
 
 def _event(session: Session, investigation_id: object, event_type: str, message: str, metadata: dict[str, Any]) -> None:
@@ -46,11 +47,12 @@ def _claim(session: Session, investigation_id: object, paper: Paper, candidate, 
         session.flush()
     evidence = session.scalar(select(Evidence).where(Evidence.investigation_id == investigation_id, Evidence.paper_id == paper.id, Evidence.source_location == candidate.evidence.source_location, Evidence.source_span == {"start": candidate.evidence.start, "end": candidate.evidence.end}))
     if evidence is None:
-        evidence = Evidence(investigation_id=investigation_id, paper_id=paper.id, evidence_type="ABSTRACT", extracted_text=candidate.evidence.text, strength=Decimal("0.000"), confidence=Decimal("0.000"), source_location=candidate.evidence.source_location, source_span={"start": candidate.evidence.start, "end": candidate.evidence.end}, section=candidate.evidence.section, retrieval_metadata={"retrieved_at": paper.retrieved_at.isoformat(), "provider": paper.source}, evidence_metadata={"confidence_semantics": "not_assessed"})
+        evidence = Evidence(investigation_id=investigation_id, paper_id=paper.id, evidence_type="ABSTRACT", extracted_text=candidate.evidence.text, strength=Decimal("0.600"), confidence=Decimal(str(candidate.extraction_confidence)), source_location=candidate.evidence.source_location, source_span={"start": candidate.evidence.start, "end": candidate.evidence.end}, section=candidate.evidence.section, retrieval_metadata={"retrieved_at": paper.retrieved_at.isoformat(), "provider": paper.source}, polarity=None, extraction_method=candidate.evidence.source_location + ":" + "deterministic_abstract", evidence_metadata={"confidence_semantics": "extraction_signal_not_truth_probability", "strength_semantics": "abstract_evidence_assessment_signal"})
         session.add(evidence)
         session.flush()
     if session.scalar(select(ClaimEvidence).where(ClaimEvidence.claim_id == claim.id, ClaimEvidence.evidence_id == evidence.id)) is None:
         session.add(ClaimEvidence(claim_id=claim.id, evidence_id=evidence.id, role="DIRECT"))
+        session.flush()
     for entity in entities:
         if normalize_entity_name(entity.canonical_name) in normalize_claim(candidate.text) and session.scalar(select(ClaimEntity).where(ClaimEntity.claim_id == claim.id, ClaimEntity.entity_id == entity.id)) is None:
             session.add(ClaimEntity(claim_id=claim.id, entity_id=entity.id, role="MENTIONS"))
@@ -78,6 +80,7 @@ def extract_investigation_knowledge(session: Session, investigation: Investigati
             claims_by_text[normalize_claim(candidate.text)] = claim
             counts["claims"] += 1
             counts["evidence"] += 1
+            _event(session, investigation.id, "evidence_extracted", "An exact source span was persisted as evidence.", {"evidence_type": "ABSTRACT", "paper_id": str(paper.id), "claim_id": str(claim.id), "extraction_method": extractor.name})
             _event(session, investigation.id, "claim_extracted", "A source-grounded abstract claim was recorded.", {"claim_id": str(claim.id), "paper_id": str(paper.id), "source": paper.source, "source_location": candidate.evidence.source_location})
         for candidate in result.relationships:
             subject = entities_by_name.get(normalize_entity_name(candidate.subject))
@@ -85,9 +88,43 @@ def extract_investigation_knowledge(session: Session, investigation: Investigati
             claim = claims_by_text.get(normalize_claim(candidate.claim_text))
             if subject is None or object_entity is None or claim is None:
                 continue
-            relationship = session.scalar(select(Relationship).where(Relationship.investigation_id == investigation.id, Relationship.subject_entity_id == subject.id, Relationship.predicate == candidate.predicate, Relationship.object_entity_id == object_entity.id, Relationship.stance == "SUPPORTS"))
+            normalized_subject = normalize_proposition_part(subject.canonical_name)
+            normalized_predicate = normalize_proposition_part(candidate.predicate)
+            normalized_object = normalize_proposition_part(object_entity.canonical_name)
+            key = proposition_key(investigation.id, subject.canonical_name, candidate.predicate, object_entity.canonical_name)
+            proposition = session.scalar(select(Proposition).where(Proposition.investigation_id == investigation.id, Proposition.proposition_key == key))
+            if proposition is None:
+                proposition = Proposition(
+                    investigation_id=investigation.id,
+                    subject=subject.canonical_name,
+                    predicate=candidate.predicate,
+                    object=object_entity.canonical_name,
+                    normalized_subject=normalized_subject,
+                    normalized_predicate=normalized_predicate,
+                    normalized_object=normalized_object,
+                    proposition_key=key,
+                    description=f"{subject.canonical_name} {candidate.predicate.lower().replace('_', ' ')} {object_entity.canonical_name}.",
+                    context={"source_location": "abstract", "extraction_method": extractor.name},
+                    provenance={"claim_id": str(claim.id), "paper_id": str(paper.id), "provider": paper.source},
+                )
+                session.add(proposition)
+                session.flush()
+                _event(session, investigation.id, "proposition_created", "A structured proposition was derived from a source-linked claim.", {"proposition_id": str(proposition.id), "claim_id": str(claim.id), "paper_id": str(paper.id)})
+            claim.proposition_id = proposition.id
+            claim_evidence = session.scalars(select(Evidence).join(ClaimEvidence, ClaimEvidence.evidence_id == Evidence.id).where(ClaimEvidence.claim_id == claim.id)).all()
+            polarity = evidence_polarity(claim.claim_text)
+            for evidence in claim_evidence:
+                evidence.proposition_id = proposition.id
+                evidence.polarity = polarity
+                evidence.extraction_method = extractor.name
+                if not evidence.confidence or float(evidence.confidence) == 0:
+                    evidence.confidence = claim.extraction_confidence or Decimal("0.990")
+                if not evidence.strength or float(evidence.strength) == 0:
+                    evidence.strength = Decimal("0.600")
+                evidence.evidence_metadata = {**(evidence.evidence_metadata or {}), "polarity_reason": "explicit_source_sentence_cue" if polarity != "SUPPORTS" else "no_opposing_source_cue"}
+            relationship = session.scalar(select(Relationship).where(Relationship.investigation_id == investigation.id, Relationship.subject_entity_id == subject.id, Relationship.predicate == candidate.predicate, Relationship.object_entity_id == object_entity.id, Relationship.stance == polarity))
             if relationship is None:
-                relationship = Relationship(investigation_id=investigation.id, subject_entity_id=subject.id, predicate=candidate.predicate, object_entity_id=object_entity.id, strength=Decimal("0.000"), confidence=Decimal("0.000"), source_type="LITERATURE_EXTRACTION", stance="SUPPORTS", relationship_metadata={"confidence_semantics": "not_assessed", "predicate_evidence": candidate.claim_text})
+                relationship = Relationship(investigation_id=investigation.id, subject_entity_id=subject.id, predicate=candidate.predicate, object_entity_id=object_entity.id, strength=Decimal("0.600"), confidence=claim.extraction_confidence or Decimal("0.990"), source_type="LITERATURE_EXTRACTION", stance=polarity, relationship_metadata={"confidence_semantics": "extraction_signal_not_truth_probability", "predicate_evidence": candidate.claim_text, "proposition_id": str(proposition.id)})
                 session.add(relationship)
                 session.flush()
                 counts["relationships"] += 1
@@ -123,5 +160,17 @@ def investigation_graph(session: Session, investigation_id: object, *, query: st
     edges = []
     for relationship in relationships:
         related_claims = [claim for claim in claims.values() if session.scalar(select(RelationshipClaim).where(RelationshipClaim.relationship_id == relationship.id, RelationshipClaim.claim_id == claim.id)) is not None]
-        edges.append({"id": str(relationship.id), "source": str(relationship.subject_entity_id), "target": str(relationship.object_entity_id), "relationship": relationship.predicate, "stance": relationship.stance, "claims": [{"id": str(claim.id), "text": claim.claim_text, "paperId": str(claim.paper_id), "paperTitle": papers[claim.paper_id].title if claim.paper_id in papers else None} for claim in related_claims]})
+        edges.append({"id": str(relationship.id), "source": str(relationship.subject_entity_id), "target": str(relationship.object_entity_id), "relationship": relationship.predicate, "stance": relationship.stance, "provenance": relationship.relationship_metadata, "claims": [{"id": str(claim.id), "text": claim.claim_text, "paperId": str(claim.paper_id), "paperTitle": papers[claim.paper_id].title if claim.paper_id in papers else None} for claim in related_claims]})
+    propositions = session.scalars(select(Proposition).where(Proposition.investigation_id == investigation_id).limit(limit)).all()
+    proposition_ids = {item.id for item in propositions}
+    nodes.extend({"id": str(item.id), "type": "PROPOSITION", "label": item.description, "entityType": "PROPOSITION", "aliases": []} for item in propositions)
+    proposition_evidence = session.scalars(select(Evidence).where(Evidence.investigation_id == investigation_id, Evidence.proposition_id.in_(proposition_ids)).limit(limit)).all() if proposition_ids else []
+    nodes.extend({"id": str(item.id), "type": "EVIDENCE", "label": item.extracted_text[:96], "entityType": item.polarity or "EVIDENCE", "aliases": []} for item in proposition_evidence)
+    edges.extend({"id": f"evidence-{item.id}", "source": str(item.id), "target": str(item.proposition_id), "relationship": item.polarity or "EVIDENCE", "stance": item.polarity, "provenance": {"paper_id": str(item.paper_id) if item.paper_id else None, "source_span": item.source_span}, "claims": []} for item in proposition_evidence)
+    hypotheses = session.scalars(select(Hypothesis).where(Hypothesis.investigation_id == investigation_id, Hypothesis.proposition_id.in_(proposition_ids)).limit(limit)).all() if proposition_ids else []
+    nodes.extend({"id": str(item.id), "type": "HYPOTHESIS", "label": item.statement, "entityType": item.status, "aliases": []} for item in hypotheses)
+    edges.extend({"id": f"hypothesis-{item.id}", "source": str(item.id), "target": str(item.proposition_id), "relationship": "HYPOTHESIS_FOR", "stance": item.status, "provenance": item.provenance, "claims": []} for item in hypotheses)
+    gaps = session.scalars(select(KnowledgeGap).where(KnowledgeGap.investigation_id == investigation_id, KnowledgeGap.proposition_id.in_(proposition_ids)).limit(limit)).all() if proposition_ids else []
+    nodes.extend({"id": str(item.id), "type": "KNOWLEDGE_GAP", "label": item.description, "entityType": item.severity, "aliases": []} for item in gaps)
+    edges.extend({"id": f"gap-{item.id}", "source": str(item.id), "target": str(item.proposition_id), "relationship": "GAP_FOR", "stance": item.status, "provenance": item.provenance, "claims": []} for item in gaps)
     return {"nodes": nodes, "edges": edges}

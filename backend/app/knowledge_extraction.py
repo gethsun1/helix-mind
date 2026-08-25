@@ -13,17 +13,22 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol
 
 
-PREDICATES = ("TARGETS", "INHIBITS", "ACTIVATES", "REGULATES", "ENCODES", "EXPRESSED_IN", "ASSOCIATED_WITH", "CORRELATES_WITH", "INVESTIGATED_FOR")
+PREDICATES = ("TARGETS", "INHIBITS", "ACTIVATES", "REGULATES", "ENCODES", "EXPRESSED_IN", "ASSOCIATED_WITH", "CORRELATES_WITH", "INVESTIGATED_FOR", "IMPROVES", "RESTORES", "REDUCES", "INCREASES", "CORRECTS")
 _PREDICATE_PATTERNS = {
-    "TARGETS": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:targets|targeting|targeted)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "INHIBITS": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:inhibits|inhibited)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "ACTIVATES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:activates|activated)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "REGULATES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:regulates|regulated)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "ENCODES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+encodes\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "EXPRESSED_IN": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:is\s+)?expressed\s+in\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "ASSOCIATED_WITH": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:is\s+)?associated\s+with\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "CORRELATES_WITH": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+correlates?\s+with\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
-    "INVESTIGATED_FOR": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:was\s+)?investigated\s+for\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "TARGETS": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:targets|targeting|targeted|target)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "INHIBITS": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:inhibits|inhibited|inhibit)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "ACTIVATES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:activates|activated|activate)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "REGULATES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:regulates|regulated|regulate)\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "ENCODES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?encodes?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "EXPRESSED_IN": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:is\s+)?expressed\s+in\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "ASSOCIATED_WITH": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:is\s+)?associated\s+with\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "CORRELATES_WITH": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?correlates?\s+with\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "INVESTIGATED_FOR": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?(?:was\s+)?investigated\s+for\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "IMPROVES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?improves?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "RESTORES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?restores?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "REDUCES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?reduces?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "INCREASES": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?increases?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
+    "CORRECTS": r"\b(?P<subject>[A-Za-z][A-Za-z0-9-]{1,80})\s+(?:does not |did not |do not |failed to )?corrects?\s+(?P<object>[A-Za-z][A-Za-z0-9-]{1,80})\b",
 }
 
 

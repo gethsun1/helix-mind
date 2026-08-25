@@ -47,9 +47,10 @@ strict, evidence-linked structured output should be persisted. A model-produced
 claim without a retrieved paper/evidence span must be rejected.
 
 Missing abstracts produce no claims or evidence. No page, section, quotation,
-identifier, or scientific relationship is invented. Relationship strength and
-confidence fields are explicitly marked `not_assessed`; scientific reasoning
-belongs to Phase 3E.
+identifier, or scientific relationship is invented. Phase 3D extraction stays
+conservative; Phase 3E adds explicit proposition polarity, deterministic
+evidence confidence, hypotheses, contradiction pairs, and traces without
+changing source provenance.
 
 ## API
 
@@ -64,9 +65,10 @@ investigation owner server-side. Administrators retain existing visibility.
 | `GET /investigations/{id}/knowledge/claims` | Claims with evidence records |
 | `GET /investigations/{id}/knowledge/relationships` | Relationships with claims/evidence |
 
-Graph nodes are source-derived entities. Edges include predicate, stance, and
-the supporting claim/paper identifiers. Query and limit parameters bound graph
-loading.
+Graph nodes include source-derived entities plus Phase 3E propositions,
+evidence, hypotheses, and knowledge gaps. Edges include predicate, stance,
+provenance, and supporting claim/paper identifiers. Query and limit parameters
+bound graph loading.
 
 ## MeTTa and ERN-AI boundaries
 
@@ -75,17 +77,15 @@ generated fact includes IDs that lead back to claims, evidence, and papers. The
 private PeTTa runtime parses the generated facts before the extraction job is
 marked complete.
 
-Knowledge events stop at `metta_fact_created` and are stored in the existing
-investigation event stream. ERN-AI, frequency/strength reasoning, confidence
-decay, PLN/NAL reasoning over extracted knowledge, and research-state updates
-are not implemented.
+Knowledge events continue through `metta_fact_created` into the Phase 3E
+reasoning event stream. ERN-AI, confidence decay, and a general-purpose NAL
+rule library remain outside this phase.
 
 ## Limitations and next phase
 
 The extractor currently handles retrieved abstracts and explicit lexical
 patterns, not full-text scientific discourse, entity-linking ontologies, or
-semantic contradiction detection. Phase 3E owns scientific reasoning,
-hypotheses, contradiction analysis, knowledge gaps, confidence interpretation,
-and synthesis. Future LLM or domain-specific extractors must preserve the same
+unrestricted semantic contradiction detection. Phase 3E implements bounded
+structured-proposition reasoning. Future LLM or domain-specific extractors must preserve the same
 source-evidence contract and pass strict schema, authorization, idempotence,
 and provenance tests.

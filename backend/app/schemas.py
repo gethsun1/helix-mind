@@ -248,3 +248,106 @@ class KnowledgeSummaryRead(BaseModel):
     evidence: int
     relationships: int
     graph: KnowledgeGraphRead
+
+
+class PropositionRead(BaseModel):
+    id: UUID
+    subject: str
+    predicate: str
+    object: str
+    description: str
+    context: dict | None
+    provenance: dict | None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ScientificEvidenceRead(BaseModel):
+    id: UUID
+    paper_id: UUID | None = Field(serialization_alias="paperId")
+    proposition_id: UUID | None = Field(default=None, serialization_alias="propositionId")
+    evidence_type: str = Field(serialization_alias="evidenceType")
+    extracted_text: str = Field(serialization_alias="extractedText")
+    source_location: str = Field(serialization_alias="sourceLocation")
+    source_span: dict | None = Field(serialization_alias="sourceSpan")
+    polarity: str | None
+    strength: float
+    confidence: float
+    extraction_method: str | None = Field(default=None, serialization_alias="extractionMethod")
+    provenance: dict | None
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class HypothesisRead(BaseModel):
+    id: UUID
+    proposition: PropositionRead | None
+    statement: str
+    description: str | None
+    status: str
+    confidence: float
+    strength: float
+    supporting_evidence_count: int = Field(serialization_alias="supportingEvidenceCount")
+    contradictory_evidence_count: int = Field(serialization_alias="contradictoryEvidenceCount")
+    uncertainty: dict | None
+    provenance: dict | None
+    created_at: datetime = Field(serialization_alias="createdAt")
+    updated_at: datetime = Field(serialization_alias="updatedAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ContradictionRead(BaseModel):
+    id: UUID
+    proposition: PropositionRead
+    supporting_evidence: ScientificEvidenceRead = Field(serialization_alias="supportingEvidence")
+    contradictory_evidence: ScientificEvidenceRead = Field(serialization_alias="contradictoryEvidence")
+    contradiction_type: str = Field(serialization_alias="contradictionType")
+    context: dict | None
+    confidence: float
+    provenance: dict | None
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class KnowledgeGapRead(BaseModel):
+    id: UUID
+    description: str
+    severity: str
+    status: str
+    hypothesis_id: UUID | None = Field(default=None, serialization_alias="hypothesisId")
+    proposition_id: UUID | None = Field(default=None, serialization_alias="propositionId")
+    evidence_count: int = Field(serialization_alias="evidenceCount")
+    contradiction_count: int = Field(serialization_alias="contradictionCount")
+    confidence: float
+    rationale: str | None
+    research_opportunity: str | None = Field(default=None, serialization_alias="researchOpportunity")
+    related_entity_ids: list | None = Field(default=None, serialization_alias="relatedEntityIds")
+    provenance: dict | None
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ReasoningRead(BaseModel):
+    id: UUID
+    hypothesis_id: UUID = Field(serialization_alias="hypothesisId")
+    reasoning_summary: str = Field(serialization_alias="reasoningSummary")
+    rule_name: str = Field(serialization_alias="ruleName")
+    strength: float
+    confidence: float
+    trace: dict
+    created_at: datetime = Field(serialization_alias="createdAt")
+
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ReasoningSummaryRead(BaseModel):
+    hypotheses: int
+    contradictions: int
+    knowledge_gaps: int = Field(serialization_alias="knowledgeGaps")
+    traces: int
+    items: list[ReasoningRead]
+
+    model_config = ConfigDict(populate_by_name=True)

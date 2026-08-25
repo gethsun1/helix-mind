@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from app.db import SessionLocal
 from app.literature_pipeline import LiteraturePipelineError, run_literature_pipeline
 from app.knowledge import extract_investigation_knowledge
+from app.scientific_reasoning import run_scientific_reasoning
 from app.models import Investigation, InvestigationEvent
 from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
 
@@ -55,11 +56,22 @@ def start_investigation(investigation_id: str) -> dict[str, object]:
         _event(session, investigation.id, "literature_search_started", "Literature search is beginning from the persisted OmegaClaw strategy.", {"sources": ["PUBMED", "EUROPE_PMC"]})
         session.commit()
         summary = run_literature_pipeline(session, investigation)
+        investigation.status = "KNOWLEDGE"
+        _event(session, investigation.id, "knowledge_stage_started", "Source-grounded knowledge extraction is beginning.", {"paper_count": summary.get("paper_count", 0)})
+        session.commit()
         knowledge_summary = extract_investigation_knowledge(session, investigation)
+        reasoning_summary = None
+        if knowledge_summary.get("papers", 0) > 0:
+            investigation = session.get(Investigation, uuid.UUID(investigation_id))
+            assert investigation is not None
+            investigation.status = "REASONING"
+            _event(session, investigation.id, "reasoning_stage_started", "HelixMind is analyzing evidence, hypotheses, contradictions, and knowledge gaps.", {"engine": "HelixMindEvidenceReasoner"})
+            session.commit()
+            reasoning_summary = run_scientific_reasoning(session, investigation)
         investigation.status = "COMPLETED"
         investigation.completed_at = datetime.now(timezone.utc)
         session.commit()
-        return {"status": "COMPLETED", "plan": "persisted", **summary, "knowledge": knowledge_summary}
+        return {"status": "COMPLETED", "plan": "persisted", **summary, "knowledge": knowledge_summary, "reasoning": reasoning_summary}
     except LiteraturePipelineError as error:
         session.rollback()
         investigation = session.get(Investigation, uuid.UUID(investigation_id))

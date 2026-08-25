@@ -49,7 +49,8 @@ does not imply that every future research capability is complete.
 | OmegaClaw planning | Implemented in the worker path, with controlled provider failure handling |
 | OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
 | Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
-| Scientific contradiction reasoning, hypotheses, synthesis, export | Not implemented; Phase 3E roadmap work |
+| Scientific evidence reasoning, hypotheses, contradictions, gaps, traces | Implemented additively in Phase 3E; deterministic source-linked aggregation |
+| Obsidian export / ERN-AI ingestion | Planned; no speculative dependency added |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
 ## Architecture
@@ -114,12 +115,13 @@ Knowledge extraction → exact abstract evidence → claims/entities
 VERIFIED SEPARATE PROOF
 Source-grounded facts → MeTTa representation → NAL/PLN deduction
 
-CURRENT KNOWLEDGE LAYER
+CURRENT KNOWLEDGE + REASONING LAYER
 Abstract evidence → exact claims → entities → explicit relationships → graph
+                    → propositions → evidence balance → hypotheses / gaps / trace
 
-NEXT RESEARCH LAYERS
-Contradiction analysis → hypotheses and knowledge gaps → confidence assessment
-→ synthesis → export
+PHASE 3E REASONING LAYER
+Evidence polarity → contradiction pairs → deterministic confidence assessment
+→ qualified hypotheses → knowledge gaps / research opportunities → trace
 ```
 
 The current worker can retrieve and persist source records; it does not yet

@@ -154,6 +154,7 @@ class Claim(UUIDPrimaryKey, Base):
 
     investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False)
     paper_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("papers.id", ondelete="CASCADE"), nullable=False, index=True)
+    proposition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("propositions.id", ondelete="SET NULL"), nullable=True, index=True)
     claim_text: Mapped[str] = mapped_column(Text, nullable=False)
     normalized_text: Mapped[str] = mapped_column(Text, nullable=False)
     claim_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -185,6 +186,7 @@ class Evidence(UUIDPrimaryKey, Base):
 
     investigation_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=True, index=True)
     paper_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("papers.id", ondelete="SET NULL"), nullable=True)
+    proposition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("propositions.id", ondelete="SET NULL"), nullable=True, index=True)
     source_location: Mapped[str] = mapped_column(String(64), nullable=False, default="abstract", server_default="abstract")
     source_span: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     section: Mapped[str | None] = mapped_column(String(255), nullable=True)
@@ -195,6 +197,8 @@ class Evidence(UUIDPrimaryKey, Base):
     extracted_text: Mapped[str] = mapped_column(Text, nullable=False)
     strength: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
+    polarity: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    extraction_method: Mapped[str | None] = mapped_column(String(64), nullable=True)
     evidence_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
 
 
@@ -229,17 +233,25 @@ class Hypothesis(UUIDPrimaryKey, Base):
     __table_args__ = (Index("ix_hypotheses_investigation_status", "investigation_id", "status"),)
 
     investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False)
+    proposition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("propositions.id", ondelete="SET NULL"), nullable=True, index=True)
     statement: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     strength: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    supporting_evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    contradictory_evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    uncertainty: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    provenance: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class Inference(UUIDPrimaryKey, Base):
     __tablename__ = "inferences"
 
     hypothesis_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("hypotheses.id", ondelete="CASCADE"), nullable=False, index=True)
+    rule_name: Mapped[str] = mapped_column(String(64), nullable=False, default="direct_evidence_balance", server_default="direct_evidence_balance")
     reasoning_summary: Mapped[str] = mapped_column(Text, nullable=False)
     strength: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
     confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
@@ -251,9 +263,62 @@ class KnowledgeGap(UUIDPrimaryKey, Base):
     __tablename__ = "knowledge_gaps"
 
     investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    hypothesis_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("hypotheses.id", ondelete="SET NULL"), nullable=True, index=True)
+    proposition_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("propositions.id", ondelete="SET NULL"), nullable=True, index=True)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     severity: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    evidence_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    contradiction_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False, default=Decimal("0"), server_default="0")
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_opportunity: Mapped[str | None] = mapped_column(Text, nullable=True)
+    related_entity_ids: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    provenance: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class Proposition(UUIDPrimaryKey, Base):
+    """Stable structured scientific proposition derived from source-linked claims."""
+
+    __tablename__ = "propositions"
+    __table_args__ = (
+        UniqueConstraint("investigation_id", "proposition_key", name="uq_propositions_investigation_key"),
+        Index("ix_propositions_investigation", "investigation_id"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False)
+    subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    predicate: Mapped[str] = mapped_column(String(128), nullable=False)
+    object: Mapped[str] = mapped_column(String(512), nullable=False)
+    normalized_subject: Mapped[str] = mapped_column(String(512), nullable=False)
+    normalized_predicate: Mapped[str] = mapped_column(String(128), nullable=False)
+    normalized_object: Mapped[str] = mapped_column(String(512), nullable=False)
+    proposition_key: Mapped[str] = mapped_column(String(128), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    provenance: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class Contradiction(UUIDPrimaryKey, Base):
+    """Explicit opposing evidence pair; never inferred from paper titles alone."""
+
+    __tablename__ = "contradictions"
+    __table_args__ = (
+        UniqueConstraint("investigation_id", "proposition_id", "supporting_evidence_id", "contradictory_evidence_id", name="uq_contradiction_evidence_pair"),
+        Index("ix_contradictions_investigation", "investigation_id"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False)
+    proposition_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("propositions.id", ondelete="CASCADE"), nullable=False)
+    supporting_evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id", ondelete="CASCADE"), nullable=False)
+    contradictory_evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id", ondelete="CASCADE"), nullable=False)
+    contradiction_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    context: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    confidence: Mapped[Decimal] = mapped_column(Numeric(4, 3), nullable=False)
+    provenance: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
