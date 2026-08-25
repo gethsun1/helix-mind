@@ -43,8 +43,8 @@ The current HelixMind evidence confidence formula is:
 + 0.10 × provenance_completeness
 ```
 
-`extraction_quality` is the mean of the stored abstract extraction strength
-and extraction confidence. For the deterministic abstract extractor, strength
+`extraction_quality` is the mean of the product of stored abstract extraction
+strength and extraction confidence. For the deterministic abstract extractor, strength
 is an explicit `0.600` assessment signal for an exact abstract sentence; it is
 not a study-quality or clinical-efficacy score. The result is labelled
 **HelixMind evidence confidence**, not probability that a hypothesis is true.
