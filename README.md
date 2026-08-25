@@ -32,7 +32,7 @@ clinical probabilities.
 
 ## Current status
 
-This index reflects the repository and isolated runtime inspected on 2026-08-24.
+This index reflects the repository and isolated runtime inspected on 2026-08-25.
 “Verified” means supported by source inspection, tests, or a live check; it
 does not imply that every future research capability is complete.
 
@@ -69,7 +69,8 @@ HelixMind FastAPI API
     │ owner-scoped investigation and literature routes
     ▼
 PostgreSQL ◄───────────────┐
-    │ users, investigations, papers, evidence, claims, graph provenance
+    │ users, investigations, papers, evidence, claims, propositions, hypotheses,
+    │ contradictions, knowledge gaps, reasoning traces, graph provenance
     │                        │
     └── queued job ──► Redis / RQ ──► HelixMind worker
                                       │
@@ -124,8 +125,48 @@ Evidence polarity → contradiction pairs → deterministic confidence assessmen
 → qualified hypotheses → knowledge gaps / research opportunities → trace
 ```
 
-The current worker can retrieve and persist source records; it does not yet
-turn abstracts into validated claims or autonomous scientific conclusions.
+The current worker retrieves and persists source records, extracts exact
+abstract claims and evidence, derives explicit propositions, and runs the
+deterministic Phase 3E evidence aggregation stage. It does not generate
+autonomous scientific conclusions or clinical recommendations.
+
+### Phase 3E scientific reasoning
+
+Phase 3E is implemented as an additive extension to the Phase 3D provenance
+graph:
+
+- Evidence preserves the canonical paper, exact abstract span, extraction
+  method, proposition link, polarity (`SUPPORTS`, `CONTRADICTS`, `NEUTRAL`, or
+  `UNCERTAIN`), and extraction signals.
+- Stable subject/predicate/object propositions allow evidence from multiple
+  papers to be aggregated without reducing claims to free-form text alone.
+- Hypotheses use qualified evidence states: `SUPPORTED`, `CONTESTED`, `WEAK`,
+  or `UNRESOLVED`. These labels do not mean scientifically true or false.
+- Contradictions are created only for opposing evidence attached to the same
+  structured proposition. Different paper conclusions are not labelled
+  contradictory merely because they differ.
+- HelixMind evidence confidence is deterministic and explainable. It combines
+  polarity balance, extraction quality, independent supporting sources,
+  extraction confidence, and provenance completeness. It is not a clinical
+  probability or the probability that a hypothesis is true.
+- Knowledge gaps record weak, missing, or contested evidence and may include a
+  clearly labelled potential research opportunity. They are not medical advice.
+- MeTTa renders propositions, evidence polarity, hypotheses, contradictions,
+  and gaps; the existing private PeTTa runtime validates the representation.
+  Persisted reasoning traces record the evidence considered, relationships,
+  rule, result, confidence, and uncertainty.
+- The worker exposes `KNOWLEDGE` and `REASONING` stages and persists events for
+  evidence extraction, proposition/hypothesis creation, contradiction detection,
+  gap detection, and reasoning completion.
+
+The implemented reasoning rule is `direct_evidence_balance`; a general-purpose
+NAL rule library is not claimed as complete. ERN-AI and Obsidian/Markdown export
+remain future boundaries. See [the Phase 3E design note](./docs/SCIENTIFIC_REASONING.md).
+
+The live verification corpus contained 18 genuine retrieved papers and
+produced 192 source-linked evidence records, 22 propositions, 22 hypotheses
+and reasoning traces, and 6 knowledge gaps. No contradictory evidence was
+identified in that corpus, and none was fabricated for demonstration.
 
 ## Literature layer
 
@@ -189,6 +230,12 @@ session. Important routes include:
 | `GET /investigations/{id}` | Investigation plan, status, and event trace |
 | `GET /investigations/{id}/papers` | Paginated owner-scoped papers |
 | `GET /investigations/{id}/searches` | Source search records and status |
+| `GET /investigations/{id}/evidence` | Exact source-linked evidence and polarity |
+| `GET /investigations/{id}/hypotheses` | Qualified hypotheses and evidence balance |
+| `GET /investigations/{id}/contradictions` | Explicit opposing evidence pairs |
+| `GET /investigations/{id}/knowledge-gaps` | Evidence deficiencies and research opportunities |
+| `GET /investigations/{id}/reasoning` | Reasoning summary and persisted results |
+| `GET /investigations/{id}/reasoning/trace` | Inspectable proposition-to-result traces |
 | `GET /papers/{id}` | Paper detail and investigation provenance |
 | `GET /literature/search` | Search the authenticated user's corpus |
 | `GET /admin/diagnostics` | Redacted diagnostics for administrators |
@@ -250,18 +297,22 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - Provenance-preserving entities, relationships, and bounded graph APIs
 - Validated MeTTa projection through the private PeTTa runtime
 
-### Phase 3E — Scientific reasoning
+### Completed: Phase 3E — Scientific reasoning
 
-- Supporting and contradictory evidence
-- Hypotheses, knowledge gaps, confidence semantics, and synthesis
-- Transparent MeTTa/NAL/PLN updates and exports
+- Deterministic evidence polarity, structured propositions, qualified hypotheses,
+  contradiction pairs, knowledge gaps, and reasoning traces
+- Transparent evidence-confidence formula with explicit uncertainty semantics
+- MeTTa representation and PeTTa validation for the Phase 3E reasoning facts
+- Asynchronous worker lifecycle, persisted reasoning events, protected APIs,
+  and investigation/hypothesis/knowledge graph visualizations
+- Phase 3E regression and end-to-end corpus tests; 27 backend tests passing
 
 ### Future / experimental tracks
 
 - ERN-AI event-processing adapter and research-state signals
 - Obsidian, Markdown, and structured report export
 - Additional literature providers and domain adapters
-- Rich graph and reasoning visualizations
+- Broader semantic extraction and richer graph/reasoning visualizations
 
 ## How to contribute
 
