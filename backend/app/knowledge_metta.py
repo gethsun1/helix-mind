@@ -19,7 +19,10 @@ class MettaValidationError(RuntimeError):
 
 
 def _atom(value: object) -> str:
-    text = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ").strip()
+    # PeTTa's string reader does not accept backslash-escaped quotes. The
+    # canonical exact text remains in PostgreSQL; MeTTa facts keep a readable
+    # quote-safe projection and retain IDs back to that canonical provenance.
+    text = str(value).replace("\\", "/").replace('"', "'").replace("\n", " ").strip()
     return f'"{text}"'
 
 
@@ -61,8 +64,11 @@ def render_investigation_metta(session: Session, investigation_id: object) -> st
 
 def validate_metta_text(text: str, *, runtime_root: Path | None = None) -> None:
     """Validate generated facts with PeTTa when the private runtime exists."""
-    if not re.fullmatch(r"(?:;[^\n]*\n|\([a-z-]+(?: [^\n()]*)*\)\n)*", text):
-        raise MettaValidationError("Generated MeTTa contains unsupported syntax.")
+    for line in text.splitlines():
+        if line.startswith(";"):
+            continue
+        if not (line.startswith("(") and line.endswith(")") and re.match(r"\([a-z-]+(?: |\))", line)):
+            raise MettaValidationError("Generated MeTTa contains unsupported syntax.")
     project_root = Path(__file__).resolve().parents[2]
     petta_root = runtime_root or project_root / ".runtime/PeTTa"
     runner = petta_root / "run.sh"
