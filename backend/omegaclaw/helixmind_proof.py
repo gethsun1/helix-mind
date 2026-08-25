@@ -10,17 +10,13 @@ from __future__ import annotations
 import logging
 import os
 
-from openai import OpenAI
-
 import channels
 import providers
+from app.inference import InferenceError, router_from_environment
 from config import config_get_by_key
 
 
 logger = logging.getLogger(__name__)
-
-GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-GROQ_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
 
 _PROOF_INSTRUCTION = """You are executing HelixMind's constrained reasoning proof.
 Return exactly one OmegaClaw skill expression and nothing else. The only
@@ -36,73 +32,49 @@ _PROOF_COMMAND = (
 )
 
 
-class Endpoint:
-    """Immutable-enough endpoint settings without dataclass loader assumptions."""
-
-    def __init__(self, label: str, api_key_env: str, base_url: str, model: str) -> None:
-        self.label = label
-        self.api_key_env = api_key_env
-        self.base_url = base_url
-        self.model = model
-
-
 class HelixMindGeminiGroqProvider(providers.LLMProvider):
-    """Gemini primary with Groq fallback through OpenAI-compatible endpoints."""
+    """Shared HelixMind inference routing with proof-specific output validation."""
 
     def start(self) -> None:
-        self.primary = Endpoint(
-            label="gemini",
-            api_key_env=config_get_by_key("helixmind_gemini_api_key_env", "GEMINI_API_KEY"),
-            base_url=config_get_by_key("helixmind_gemini_base_url", GEMINI_OPENAI_BASE_URL),
-            model=config_get_by_key("helixmind_gemini_model", "gemini-2.5-flash"),
-        )
-        self.fallback = Endpoint(
-            label="groq",
-            api_key_env=config_get_by_key("helixmind_groq_api_key_env", "GROQ_API_KEY"),
-            base_url=config_get_by_key("helixmind_groq_base_url", GROQ_OPENAI_BASE_URL),
-            model=config_get_by_key("helixmind_groq_model", "openai/gpt-oss-20b"),
-        )
-        missing = [endpoint.api_key_env for endpoint in (self.primary, self.fallback)
-                   if not os.environ.get(endpoint.api_key_env)]
-        if missing:
-            raise RuntimeError("HelixMind OmegaClaw credentials are missing: " + ", ".join(missing))
+        mappings = {
+            "helixmind_gemini_base_url": "GEMINI_BASE_URL",
+            "helixmind_gemini_model": "GEMINI_MODEL",
+            "helixmind_groq_base_url": "GROQ_BASE_URL",
+            "helixmind_groq_model": "GROQ_MODEL",
+            "helixmind_asi_base_url": "ASI_CLOUD_BASE_URL",
+            "helixmind_asi_model": "ASI_CLOUD_CHAT_MODEL",
+            "omegaclaw_provider": "OMEGACLAW_PROVIDER",
+            "omegaclaw_provider_order": "OMEGACLAW_PROVIDER_ORDER",
+            "omegaclaw_model": "OMEGACLAW_MODEL",
+        }
+        for config_key, env_key in mappings.items():
+            value = config_get_by_key(config_key, "")
+            if value and not os.environ.get(env_key):
+                os.environ[env_key] = str(value)
+        self.router = router_from_environment()
 
     def stop(self) -> None:
         return None
 
     def chat(self, prompt: str, max_tokens: int = 6000, reasoning_mode: str = "medium") -> str:
-        failures: list[str] = []
-        for endpoint in (self.primary, self.fallback):
-            try:
-                response = self._request(endpoint, prompt, max_tokens, reasoning_mode)
-                command = self._safe_metta_command(response)
-                if command:
-                    logger.info("HelixMind proof accepted %s response using model %s", endpoint.label, endpoint.model)
-                    return command
-                failures.append(f"{endpoint.label}: response did not contain a permitted metta call")
-            except Exception as exc:  # Fail over without ever logging credentials or prompt contents.
-                logger.warning("HelixMind proof %s request failed: %s", endpoint.label, type(exc).__name__)
-                failures.append(f"{endpoint.label}: {type(exc).__name__}")
-
-        logger.error("HelixMind proof exhausted providers: %s", "; ".join(failures))
-        return "()"
-
-    @staticmethod
-    def _request(endpoint: Endpoint, prompt: str, max_tokens: int, reasoning_mode: str) -> str:
-        client = OpenAI(api_key=os.environ[endpoint.api_key_env], base_url=endpoint.base_url)
         try:
-            response = client.chat.completions.create(
-                model=endpoint.model,
-                messages=[
+            response = self.router.chat(
+                [
                     {"role": "system", "content": _PROOF_INSTRUCTION},
                     {"role": "user", "content": prompt},
                 ],
+                workload="omegaclaw_metta_proof",
                 max_tokens=max_tokens,
                 reasoning_effort=reasoning_mode,
             )
-            return response.choices[0].message.content or ""
-        finally:
-            client.close()
+            command = self._safe_metta_command(response.content)
+            if command:
+                logger.info("HelixMind proof accepted provider=%s model=%s fallback=%s", response.provider, response.model, response.fallback_occurred)
+                return command
+            logger.warning("HelixMind proof response did not contain a permitted metta call")
+        except InferenceError as exc:  # Fail over without ever logging credentials or prompt contents.
+            logger.warning("HelixMind proof inference failed category=%s", exc.category)
+        return "()"
 
     @staticmethod
     def _safe_metta_command(response: str) -> str | None:

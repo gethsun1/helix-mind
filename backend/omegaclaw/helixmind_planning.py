@@ -12,16 +12,13 @@ import logging
 import os
 from typing import Any
 
-from openai import OpenAI
-
 import channels
 import providers
+from app.inference import InferenceError, router_from_environment
 from config import config_get_by_key
 
 logger = logging.getLogger(__name__)
 
-GEMINI_OPENAI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
-GROQ_OPENAI_BASE_URL = "https://api.groq.com/openai/v1"
 _selected_provider = "unknown"
 _selected_model = "unknown"
 
@@ -36,72 +33,54 @@ literature investigation. Do not include confidence scores or citations.
 """
 
 
-class Endpoint:
-    def __init__(self, label: str, api_key_env: str, base_url: str, model: str) -> None:
-        self.label = label
-        self.api_key_env = api_key_env
-        self.base_url = base_url
-        self.model = model
-
-
 class HelixMindPlanningProvider(providers.LLMProvider):
     def start(self) -> None:
-        self.primary = Endpoint(
-            "gemini",
-            config_get_by_key("helixmind_gemini_api_key_env", "GEMINI_API_KEY"),
-            config_get_by_key("helixmind_gemini_base_url", GEMINI_OPENAI_BASE_URL),
-            config_get_by_key("helixmind_gemini_model", "gemini-2.5-flash"),
-        )
-        self.fallback = Endpoint(
-            "groq",
-            config_get_by_key("helixmind_groq_api_key_env", "GROQ_API_KEY"),
-            config_get_by_key("helixmind_groq_base_url", GROQ_OPENAI_BASE_URL),
-            config_get_by_key("helixmind_groq_model", "openai/gpt-oss-20b"),
-        )
-        missing = [endpoint.api_key_env for endpoint in (self.primary, self.fallback) if not os.environ.get(endpoint.api_key_env)]
-        if missing:
-            raise RuntimeError("HelixMind OmegaClaw planning credentials are missing.")
+        """Load OmegaClaw's provider policy into the shared HelixMind router."""
+        mappings = {
+            "helixmind_gemini_base_url": "GEMINI_BASE_URL",
+            "helixmind_gemini_model": "GEMINI_MODEL",
+            "helixmind_groq_base_url": "GROQ_BASE_URL",
+            "helixmind_groq_model": "GROQ_MODEL",
+            "helixmind_asi_base_url": "ASI_CLOUD_BASE_URL",
+            "helixmind_asi_model": "ASI_CLOUD_CHAT_MODEL",
+            "omegaclaw_provider": "OMEGACLAW_PROVIDER",
+            "omegaclaw_provider_order": "OMEGACLAW_PROVIDER_ORDER",
+            "omegaclaw_model": "OMEGACLAW_MODEL",
+        }
+        for config_key, env_key in mappings.items():
+            value = config_get_by_key(config_key, "")
+            if value and not os.environ.get(env_key):
+                os.environ[env_key] = str(value)
+        self.router = router_from_environment()
 
     def stop(self) -> None:
         return None
 
     def chat(self, prompt: str, max_tokens: int = 6000, reasoning_mode: str = "medium") -> str:
         global _selected_provider, _selected_model
-        failures: list[str] = []
-        for endpoint in (self.primary, self.fallback):
-            try:
-                response = self._request(endpoint, prompt, max_tokens, reasoning_mode)
-                plan = self._extract_plan(response)
-                if plan is not None:
-                    _selected_provider = endpoint.label
-                    _selected_model = endpoint.model
-                    logger.info("OmegaClaw planning accepted provider=%s model=%s", endpoint.label, endpoint.model)
-                    encoded = json.dumps(plan, ensure_ascii=True, separators=(",", ":"))
-                    escaped = json.dumps(encoded, ensure_ascii=True)
-                    return f"(send {escaped})"
-                failures.append(f"{endpoint.label}: invalid plan")
-            except Exception as error:
-                logger.warning("OmegaClaw planning provider %s failed: %s", endpoint.label, type(error).__name__)
-                failures.append(f"{endpoint.label}: {type(error).__name__}")
-        logger.error("OmegaClaw planning providers exhausted: %s", "; ".join(failures))
-        return "()"
-
-    @staticmethod
-    def _request(endpoint: Endpoint, prompt: str, max_tokens: int, reasoning_mode: str) -> str:
-        client = OpenAI(api_key=os.environ[endpoint.api_key_env], base_url=endpoint.base_url)
         try:
-            response = client.chat.completions.create(
-                model=endpoint.model,
-                messages=[
+            response = self.router.chat(
+                [
                     {"role": "system", "content": _PLANNING_INSTRUCTION},
                     {"role": "user", "content": prompt},
                 ],
+                workload="omegaclaw_planning",
                 max_tokens=max_tokens,
                 reasoning_effort=reasoning_mode,
             )
-            return response.choices[0].message.content or ""
-        finally:
-            client.close()
+            plan = self._extract_plan(response.content)
+            if plan is None:
+                logger.warning("OmegaClaw planning providers returned no valid structured plan")
+                return "()"
+            _selected_provider = response.provider
+            _selected_model = response.model
+            logger.info("OmegaClaw planning accepted provider=%s model=%s fallback=%s", response.provider, response.model, response.fallback_occurred)
+            encoded = json.dumps(plan, ensure_ascii=True, separators=(",", ":"))
+            escaped = json.dumps(encoded, ensure_ascii=True)
+            return f"(send {escaped})"
+        except InferenceError as error:
+            logger.error("OmegaClaw planning providers exhausted category=%s", error.category)
+            return "()"
 
     @staticmethod
     def _extract_plan(response: str) -> dict[str, Any] | None:

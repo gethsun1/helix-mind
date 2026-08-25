@@ -9,6 +9,10 @@ reasoningMode: low
 embeddingprovider: OpenAI
 memoryDirectory: /tmp/helixmind-omegaclaw-planning
 securityPolicyPath: /opt/HelixMind/backend/omegaclaw/planning-policy.yaml
+omegaclaw_provider: ""
+omegaclaw_provider_order: gemini,groq
+helixmind_asi_base_url: https://llm.c.singularitynet.io/v1
+helixmind_asi_model: asi1-mini
 helixmind_gemini_api_key_env: GEMINI_API_KEY
 helixmind_gemini_base_url: https://generativelanguage.googleapis.com/v1beta/openai/
 helixmind_gemini_model: gemini-2.5-flash

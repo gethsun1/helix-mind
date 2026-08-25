@@ -142,7 +142,7 @@ Europe PMC: (TITLE_ABS:"sickle cell disease") AND (TITLE_ABS:CRISPR OR TITLE_ABS
 
 Provider failures are recorded as controlled search failures; a successful
 source can be preserved when another source fails. No papers are fabricated.
-See [the literature pipeline](./docs/LITERATURE_PIPELINE.md) and [knowledge layer](./docs/KNOWLEDGE_LAYER.md).
+See [the literature pipeline](./docs/LITERATURE_PIPELINE.md), [knowledge layer](./docs/KNOWLEDGE_LAYER.md), and [inference providers](./docs/INFERENCE_PROVIDERS.md).
 
 ## OmegaClaw, PeTTa, and MeTTa
 
@@ -223,7 +223,7 @@ backend/omegaclaw/      constrained provider/channel and proof configuration
 backend/reasoning/      source-grounded MeTTa programs
 backend/tests/          API, database, literature, auth, and proof contracts
 deploy/                 HelixMind-only systemd, Redis, Nginx, and env examples
-docs/                   literature, knowledge, runtime, infrastructure, integration notes
+docs/                   literature, knowledge, inference, runtime, infrastructure, integration notes
 ```
 
 ## Roadmap

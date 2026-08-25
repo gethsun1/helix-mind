@@ -15,6 +15,7 @@ filesystem_policy:
     - /etc/resolv.conf
     - /opt/HelixMind/.runtime
     - /opt/HelixMind/backend/omegaclaw
+    - /opt/HelixMind/backend/app
   read_write:
     - /tmp
     - /var/tmp

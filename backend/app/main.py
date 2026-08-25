@@ -9,6 +9,7 @@ from sqlalchemy import select, text
 
 from app.config import get_settings
 from app.db import SessionLocal, engine
+from app.inference import InferenceError, asi_cloud_from_environment
 from app.models import User
 from app.routes.investigations import router as investigations_router
 from app.routes.literature import router as literature_router
@@ -118,13 +119,29 @@ def admin_diagnostics(_: User = Depends(require_admin)) -> dict:
         redis_ok = False
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
+    inference = {"provider": "asi", "configured": False, "reachable": False, "models": [], "selected_chat_model": os.getenv("ASI_CLOUD_CHAT_MODEL", "asi1-mini"), "selected_embedding_model": os.getenv("ASI_CLOUD_EMBEDDING_MODEL", "BAAI/bge-base-en-v1.5")}
+    try:
+        asi = asi_cloud_from_environment()
+        inference["configured"] = bool(asi.api_keys)
+        inference["models"] = asi.discover_models()
+        inference["reachable"] = True
+    except InferenceError as error:
+        inference["error_category"] = error.category
+    except Exception:
+        inference["error_category"] = "provider_failure"
+    finally:
+        if "asi" in locals():
+            asi.close()
     return {
         "api": "ok",
         "postgresql": "ok",
         "redis": "ok" if redis_ok else "unavailable",
         "omegaclaw": "configured-runtime",
         "llm_providers": {
-            "primary": "gemini" if os.getenv("GEMINI_API_KEY") else "not-configured",
-            "fallback": "groq" if os.getenv("GROQ_API_KEY") else "not-configured",
+            "configured_order": [item.strip() for item in os.getenv("OMEGACLAW_PROVIDER_ORDER", "gemini,groq").split(",") if item.strip()],
+            "selected": os.getenv("OMEGACLAW_PROVIDER", "gemini"),
+            "gemini": "configured" if os.getenv("GEMINI_API_KEY") else "not-configured",
+            "groq": "configured" if os.getenv("GROQ_API_KEY") else "not-configured",
+            "asi": inference,
         },
     }

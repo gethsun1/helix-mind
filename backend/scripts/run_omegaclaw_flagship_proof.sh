@@ -29,7 +29,16 @@ chmod 700 "$proof_dir"
 export CHROMA_DB_PATH="$proof_dir/chroma"
 export PYTHONNOUSERSITE=1
 omega_core="$petta_root/repos/OmegaClaw-Core"
-export PYTHONPATH="$omega_venv/lib/python3.12/site-packages:$omega_core:$omega_core/src:$omega_core/providers:$omega_core/profile${PYTHONPATH:+:$PYTHONPATH}"
+if [ ! -d "$omega_core/.git" ]; then
+  echo "HelixMind's pinned OmegaClaw-Core checkout is unavailable." >&2
+  exit 1
+fi
+omega_commit=$(git -C "$omega_core" rev-parse HEAD 2>/dev/null || true)
+if [ "$omega_commit" != "9890bcb8041598fc6a4f1d8e658b8306a204cc87" ]; then
+  echo "HelixMind's OmegaClaw-Core checkout is not at the pinned commit." >&2
+  exit 1
+fi
+export PYTHONPATH="$project_root/backend:$omega_venv/lib/python3.12/site-packages:$omega_core:$omega_core/src:$omega_core/providers:$omega_core/profile${PYTHONPATH:+:$PYTHONPATH}"
 
 cd "$petta_root"
 PATH="$swi_bin:$PATH" timeout --signal=TERM 20 sh run.sh "$run_path" "config=$config_path"

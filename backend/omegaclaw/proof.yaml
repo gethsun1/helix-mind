@@ -18,6 +18,10 @@ reasoningMode: low
 embeddingprovider: OpenAI
 memoryDirectory: /tmp/helixmind-omegaclaw-proof
 securityPolicyPath: /opt/HelixMind/backend/omegaclaw/proof-policy.yaml
+omegaclaw_provider: ""
+omegaclaw_provider_order: gemini,groq
+helixmind_asi_base_url: https://llm.c.singularitynet.io/v1
+helixmind_asi_model: asi1-mini
 
 # Gemini primary; Groq is attempted only for a failed or empty Gemini response.
 helixmind_gemini_api_key_env: GEMINI_API_KEY
