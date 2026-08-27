@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from uuid import UUID
 
@@ -65,6 +67,8 @@ class InvestigationRead(BaseModel):
     error_message: str | None = Field(default=None, serialization_alias="errorMessage")
     research_plan: dict | None = Field(default=None, serialization_alias="researchPlan")
     events: list[InvestigationEventRead] = Field(default_factory=list)
+    milestones: list[ResearchMilestoneRead] = Field(default_factory=list)
+    health: ResearchHealthRead | None = None
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
@@ -291,6 +295,8 @@ class HypothesisRead(BaseModel):
     contradictory_evidence_count: int = Field(serialization_alias="contradictoryEvidenceCount")
     uncertainty: dict | None
     provenance: dict | None
+    supporting_evidence: list[ScientificEvidenceRead] = Field(default_factory=list, serialization_alias="supportingEvidence")
+    contradictory_evidence: list[ScientificEvidenceRead] = Field(default_factory=list, serialization_alias="contradictoryEvidence")
     created_at: datetime = Field(serialization_alias="createdAt")
     updated_at: datetime = Field(serialization_alias="updatedAt")
 
@@ -406,7 +412,51 @@ class ResearchArtifactRead(BaseModel):
     schema_version: str = Field(serialization_alias="schemaVersion")
     content_digest: str | None = Field(default=None, serialization_alias="contentDigest")
     manifest_digest: str = Field(serialization_alias="manifestDigest")
+    content_type: str | None = Field(default=None, serialization_alias="contentType")
+    file_size: int | None = Field(default=None, serialization_alias="fileSize")
+    error_message: str | None = Field(default=None, serialization_alias="errorMessage")
+    visibility: str = "PRIVATE"
+    completed_at: datetime | None = Field(default=None, serialization_alias="completedAt")
+    download_url: str | None = Field(default=None, serialization_alias="downloadUrl")
     metadata: dict | None = None
     created_at: datetime = Field(serialization_alias="createdAt")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+
+class ResearchArtifactCreate(BaseModel):
+    artifact_type: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def accept_json_alias(cls, values):
+        if isinstance(values, dict) and "artifact_type" not in values:
+            values = dict(values)
+            values["artifact_type"] = values.get("artifactType")
+        return values
+
+
+class ResearchMilestoneRead(BaseModel):
+    key: str
+    label: str
+    status: str
+    achieved_at: datetime | None = Field(default=None, serialization_alias="achievedAt")
+    evidence: str
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ResearchHealthRead(BaseModel):
+    papers: int
+    searches: int
+    claims: int
+    evidence: int
+    evidence_with_provenance: int = Field(serialization_alias="evidenceWithProvenance")
+    propositions: int
+    hypotheses: int
+    contradictions: int
+    knowledge_gaps: int = Field(serialization_alias="knowledgeGaps")
+
+    model_config = ConfigDict(populate_by_name=True)

@@ -368,3 +368,259 @@ body {
     letter-spacing: .3px;
   }
 }
+
+.workspace-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.progress-panel {
+  margin: 30px 0 14px;
+}
+
+.milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.milestone {
+  display: flex;
+  gap: 10px;
+  min-height: 76px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  background: #fbfdf9;
+}
+
+.milestone-marker {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  place-items: center;
+  border: 1px solid #b7c9b9;
+  border-radius: 50%;
+  color: #77937b;
+  font: 12px 'DM Mono';
+}
+
+.milestone-achieved .milestone-marker {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
+.milestone-current {
+  border-color: #d7b46d;
+  background: #fffaf0;
+}
+
+.milestone-current .milestone-marker {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.milestone b,
+.milestone small {
+  display: block;
+}
+
+.milestone b {
+  color: var(--deep);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.milestone small,
+.artifact-meta {
+  margin-top: 5px;
+  color: var(--muted);
+  font: 9px/1.5 'DM Mono';
+}
+
+.health-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 30px;
+}
+
+.health-card {
+  padding: 13px 14px;
+  border-top: 2px solid #c8d9c9;
+  background: #f4f8f2;
+}
+
+.health-card span,
+.health-card b {
+  display: block;
+}
+
+.health-card span {
+  color: var(--muted);
+  font: 9px 'DM Mono';
+  text-transform: uppercase;
+}
+
+.health-card b {
+  margin-top: 5px;
+  color: var(--deep);
+  font: 500 22px 'DM Mono';
+}
+
+.artifact-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.artifact-actions {
+  display: grid;
+  gap: 7px;
+  margin: 17px 0;
+}
+
+.artifact-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 15px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.artifact-record {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e3ebe2;
+}
+
+.artifact-record b,
+.artifact-record small {
+  display: block;
+}
+
+.artifact-record b {
+  color: var(--deep);
+  font-size: 11px;
+}
+
+.artifact-record small {
+  margin-top: 4px;
+  color: var(--muted);
+  font: 9px 'DM Mono';
+}
+
+.evidence-explorer {
+  margin-bottom: 18px;
+}
+
+.evidence-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.evidence-filters label {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font: 9px 'DM Mono';
+  text-transform: uppercase;
+}
+
+.evidence-filters select {
+  min-width: 145px;
+  padding: 9px;
+  border: 1px solid #cbd8cc;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--ink);
+  font: 12px 'DM Sans';
+}
+
+.filter-note {
+  max-width: 300px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.evidence-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.evidence-card-top a {
+  color: var(--green);
+  font: 9px 'DM Mono';
+  text-transform: uppercase;
+}
+
+.linked-evidence {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border-left: 2px solid #a9c2ad;
+  background: #f6faf5;
+}
+
+.linked-evidence small {
+  color: var(--green);
+  font: 9px 'DM Mono';
+  text-transform: uppercase;
+}
+
+.linked-evidence p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.linked-opposing {
+  border-left-color: #c68b82;
+  background: #fff8f6;
+}
+
+@media (max-width: 1000px) {
+  .milestone-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .health-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .workspace-actions {
+    width: 100%;
+  }
+
+  .workspace-actions .button {
+    flex: 1 1 auto;
+  }
+
+  .milestone-grid,
+  .health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .milestone {
+    min-height: 0;
+    padding: 10px;
+  }
+
+  .health-card {
+    padding: 11px;
+  }
+}

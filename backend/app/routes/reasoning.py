@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.models import Claim, ClaimEvidence, Contradiction, Evidence, Hypothesis, Inference, Investigation, KnowledgeGap, Proposition, User
+from app.models import Claim, ClaimEvidence, Contradiction, Evidence, Hypothesis, Inference, Investigation, KnowledgeGap, Paper, Proposition, User
 from app.schemas import ContradictionRead, HypothesisRead, KnowledgeGapRead, PropositionRead, ReasoningRead, ReasoningSummaryRead, ScientificEvidenceRead
 from app.security import get_current_user
 
@@ -40,10 +40,25 @@ def _reasoning(item: Inference) -> ReasoningRead:
 
 
 @router.get("/{investigation_id}/evidence", response_model=list[ScientificEvidenceRead])
-def investigation_evidence(investigation_id: UUID, limit: int = Query(default=500, ge=1, le=2_000), user: User = Depends(get_current_user)) -> list[ScientificEvidenceRead]:
+def investigation_evidence(investigation_id: UUID, limit: int = Query(default=500, ge=1, le=2_000), polarity: str | None = Query(default=None, max_length=24), paper_id: UUID | None = Query(default=None, alias="paperId"), paper_source: str | None = Query(default=None, alias="paperSource", max_length=32), proposition_id: UUID | None = Query(default=None, alias="propositionId"), min_confidence: float | None = Query(default=None, alias="minConfidence", ge=0, le=1), max_confidence: float | None = Query(default=None, alias="maxConfidence", ge=0, le=1), provenance_only: bool = Query(default=False, alias="provenanceOnly"), user: User = Depends(get_current_user)) -> list[ScientificEvidenceRead]:
     with SessionLocal() as session:
         _scope(session, investigation_id, user)
-        rows = session.scalars(select(Evidence).where(Evidence.investigation_id == investigation_id).order_by(Evidence.extraction_timestamp.asc()).limit(limit)).all()
+        query = select(Evidence).where(Evidence.investigation_id == investigation_id)
+        if polarity:
+            query = query.where(Evidence.polarity == polarity.strip().upper())
+        if paper_id:
+            query = query.where(Evidence.paper_id == paper_id)
+        if paper_source:
+            query = query.join(Paper, Paper.id == Evidence.paper_id).where(Paper.source == paper_source.strip().upper())
+        if proposition_id:
+            query = query.where(Evidence.proposition_id == proposition_id)
+        if min_confidence is not None:
+            query = query.where(Evidence.confidence >= min_confidence)
+        if max_confidence is not None:
+            query = query.where(Evidence.confidence <= max_confidence)
+        if provenance_only:
+            query = query.where(Evidence.paper_id.is_not(None), Evidence.source_span.is_not(None), Evidence.source_location.is_not(None))
+        rows = session.scalars(query.order_by(Evidence.extraction_timestamp.asc()).limit(limit)).all()
         return [_evidence(item) for item in rows]
 
 
@@ -52,7 +67,11 @@ def investigation_hypotheses(investigation_id: UUID, limit: int = Query(default=
     with SessionLocal() as session:
         _scope(session, investigation_id, user)
         rows = session.scalars(select(Hypothesis).where(Hypothesis.investigation_id == investigation_id).order_by(Hypothesis.updated_at.desc()).limit(limit)).all()
-        return [HypothesisRead(id=item.id, proposition=_proposition(session, item.proposition_id), statement=item.statement, description=item.description, status=item.status, confidence=float(item.confidence or 0), strength=float(item.strength or 0), supporting_evidence_count=item.supporting_evidence_count, contradictory_evidence_count=item.contradictory_evidence_count, uncertainty=item.uncertainty, provenance=item.provenance, created_at=item.created_at, updated_at=item.updated_at) for item in rows]
+        result = []
+        for item in rows:
+            evidence = session.scalars(select(Evidence).where(Evidence.investigation_id == investigation_id, Evidence.proposition_id == item.proposition_id).order_by(Evidence.extraction_timestamp.asc())).all() if item.proposition_id else []
+            result.append(HypothesisRead(id=item.id, proposition=_proposition(session, item.proposition_id), statement=item.statement, description=item.description, status=item.status, confidence=float(item.confidence or 0), strength=float(item.strength or 0), supporting_evidence_count=item.supporting_evidence_count, contradictory_evidence_count=item.contradictory_evidence_count, uncertainty=item.uncertainty, provenance=item.provenance, supporting_evidence=[_evidence(value) for value in evidence if value.polarity == "SUPPORTS"], contradictory_evidence=[_evidence(value) for value in evidence if value.polarity == "CONTRADICTS"], created_at=item.created_at, updated_at=item.updated_at))
+        return result
 
 
 @router.get("/{investigation_id}/contradictions", response_model=list[ContradictionRead])

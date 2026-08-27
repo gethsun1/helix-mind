@@ -10,6 +10,7 @@ from sqlalchemy import select
 from app.db import SessionLocal
 from app.jobs import start_investigation
 from app.models import Investigation, InvestigationEvent, InvestigationRun, User
+from app.research_progress import research_health, research_milestones
 from app.queue import get_research_queue
 from app.schemas import (
     InvestigationCancelResponse,
@@ -60,6 +61,8 @@ def _read_investigation(session, investigation: Investigation) -> InvestigationR
         error_message=investigation.error_message,
         research_plan=investigation.research_plan,
         events=[_event_read(event) for event in events],
+        milestones=research_milestones(session, investigation),
+        health=research_health(session, investigation.id),
     )
 
 

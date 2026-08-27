@@ -95,6 +95,8 @@ The investigation workspace shows source-linked evidence, evidence balance,
 opposing evidence, gaps, opportunities, and the reasoning trace. If no
 contradiction was found in the retrieved corpus, the UI says so explicitly.
 
-ERN-AI and Obsidian export are not implemented in this phase. The proposition,
-evidence, hypothesis, gap, provenance, and trace structures are intentionally
-clean boundaries for those future integrations.
+ERN-AI remains a reserved future boundary. Phase 4B now projects the
+proposition, evidence, hypothesis, gap, provenance, and trace structures into
+private Markdown, structured scientific report, and Obsidian artifacts from
+immutable snapshots; these exports do not promote unsupported records into
+scientific conclusions.

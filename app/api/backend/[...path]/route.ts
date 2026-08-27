@@ -25,9 +25,14 @@ async function forward(request: NextRequest, { params }: { params: { path: strin
     cache: 'no-store',
   });
   const responseBody = await response.arrayBuffer();
+  const forwardedHeaders = new Headers({ 'Content-Type': response.headers.get('content-type') ?? 'application/json' });
+  for (const header of ['content-disposition', 'content-length', 'cache-control', 'x-artifact-digest']) {
+    const value = response.headers.get(header);
+    if (value) forwardedHeaders.set(header, value);
+  }
   return new NextResponse(responseBody, {
     status: response.status,
-    headers: { 'Content-Type': response.headers.get('content-type') ?? 'application/json' },
+    headers: forwardedHeaders,
   });
 }
 

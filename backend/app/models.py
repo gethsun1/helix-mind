@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
+from sqlalchemy import BigInteger, Boolean, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -106,7 +106,7 @@ class ResearchSnapshot(UUIDPrimaryKey, Base):
 
 
 class ResearchArtifact(UUIDPrimaryKey, Base):
-    """Registry contract for a future artifact generated from a snapshot."""
+    """Registry and private storage contract for an artifact generated from a snapshot."""
 
     __tablename__ = "research_artifacts"
     __table_args__ = (
@@ -122,8 +122,14 @@ class ResearchArtifact(UUIDPrimaryKey, Base):
     schema_version: Mapped[str] = mapped_column(String(64), nullable=False, default="phase4a-1", server_default="phase4a-1")
     content_digest: Mapped[str | None] = mapped_column(String(64), nullable=True)
     manifest_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_type: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    file_size: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    storage_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="PRIVATE", server_default="PRIVATE")
     artifact_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class Paper(UUIDPrimaryKey, Base):

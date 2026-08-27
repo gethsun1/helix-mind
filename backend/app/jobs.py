@@ -1,13 +1,20 @@
 import uuid
+import hashlib
+import os
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 from app.db import SessionLocal
+from app.config import get_settings
 from app.knowledge import extract_investigation_knowledge
 from app.literature_pipeline import LiteraturePipelineError, run_literature_pipeline
 from app.models import Investigation, InvestigationEvent, InvestigationRun
+from app.models import ResearchArtifact, ResearchSnapshot
 from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
 from app.research_reproducibility import create_run, digest_json, freeze_snapshot
 from app.scientific_reasoning import run_scientific_reasoning
+from app.research_artifacts import GENERATOR_VERSION, generate_artifact
 
 
 def _event(session, investigation_id, event_type: str, message: str, metadata: dict | None = None) -> None:
@@ -115,5 +122,81 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
     except Exception:
         _mark_failed(session, investigation_id, active_run_id, "The research worker encountered an unexpected error.", "SYSTEM_ERROR")
         return {"status": "FAILED"}
+    finally:
+        session.close()
+
+
+def _artifact_path(root: Path, storage_key: str) -> Path:
+    resolved_root = root.resolve()
+    resolved_path = (resolved_root / storage_key).resolve()
+    if resolved_path != resolved_root and resolved_root not in resolved_path.parents:
+        raise ValueError("Artifact storage path escaped the private artifact root.")
+    return resolved_path
+
+
+def _write_artifact(root: Path, storage_key: str, content: bytes) -> None:
+    target = _artifact_path(root, storage_key)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    temporary_name: str | None = None
+    try:
+        with tempfile.NamedTemporaryFile("wb", dir=target.parent, prefix=f".{target.name}.", suffix=".tmp", delete=False) as handle:
+            temporary_name = handle.name
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, target)
+    finally:
+        if temporary_name:
+            Path(temporary_name).unlink(missing_ok=True)
+
+
+def generate_research_artifact(artifact_id: str) -> dict[str, object]:
+    """Generate one queued artifact from its immutable snapshot manifest."""
+    session = SessionLocal()
+    try:
+        artifact = session.get(ResearchArtifact, uuid.UUID(artifact_id))
+        if artifact is None:
+            return {"status": "missing"}
+        if artifact.status == "COMPLETED":
+            return {"status": "COMPLETED", "artifact_id": artifact_id, "content_digest": artifact.content_digest}
+        snapshot = session.get(ResearchSnapshot, artifact.snapshot_id)
+        if snapshot is None:
+            artifact.status = "FAILED"
+            artifact.error_message = "The source snapshot is unavailable."
+            session.commit()
+            return {"status": "FAILED"}
+        artifact.status = "RUNNING"
+        artifact.error_message = None
+        session.commit()
+        try:
+            generated = generate_artifact(snapshot, artifact.artifact_type)
+            content_digest = hashlib.sha256(generated.content).hexdigest()
+            storage_key = f"{snapshot.investigation_id}/{snapshot.id}/{artifact.id}.{generated.extension}"
+            _write_artifact(Path(get_settings().artifact_root), storage_key, generated.content)
+            artifact.artifact_type = generated.artifact_type
+            artifact.artifact_format = generated.artifact_format
+            artifact.generator_version = GENERATOR_VERSION
+            artifact.content_digest = content_digest
+            artifact.content_type = generated.content_type
+            artifact.file_size = len(generated.content)
+            artifact.storage_key = storage_key
+            artifact.status = "COMPLETED"
+            artifact.completed_at = datetime.now(timezone.utc)
+            artifact.artifact_metadata = {
+                "source": "immutable_research_snapshot",
+                "snapshot_manifest_digest": snapshot.manifest_digest,
+                "generator_version": GENERATOR_VERSION,
+            }
+            session.commit()
+            return {"status": "COMPLETED", "artifact_id": artifact_id, "content_digest": content_digest, "file_size": len(generated.content)}
+        except Exception:
+            session.rollback()
+            failed = session.get(ResearchArtifact, uuid.UUID(artifact_id))
+            if failed is not None:
+                failed.status = "FAILED"
+                failed.error_message = "Artifact generation failed."
+                failed.completed_at = datetime.now(timezone.utc)
+                session.commit()
+            return {"status": "FAILED", "artifact_id": artifact_id}
     finally:
         session.close()

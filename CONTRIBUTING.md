@@ -66,6 +66,11 @@ restarts.
   source links explicit. A proof is not a production scientific claim.
 - **Reasoning and export:** preserve support, contradiction, uncertainty,
   derivation traces, identifiers, timestamps, and provenance.
+- **Research artifacts:** generate Markdown, structured reports, and Obsidian
+  vaults only from immutable snapshot manifests. Keep output deterministic,
+  owner-scoped, privately stored, digest-checked, and explicit about missing
+  identifiers and uncertainty. Do not add public publishing or sharing as an
+  export side effect.
 - **Knowledge layer:** extend the existing Entity/Claim/Evidence/Relationship
   chain; keep every graph fact linked to a paper and exact evidence location.
   Prefer high-precision deterministic extraction over unsupported recall.
@@ -101,7 +106,7 @@ Use a focused workstream and state architectural impact in the PR:
 - knowledge: entities, relationships, knowledge/evidence graphs
 - scientific reasoning: support, contradiction, hypotheses, gaps, confidence
 - frontend: workstation, visualizations, investigation UX, transparency
-- export: Obsidian, Markdown, structured research reports
+- export: Obsidian, Markdown, structured research reports from snapshots
 - testing: scientific correctness, provenance, integration, regression
 
 To add a reasoning component, define its input/output contract, provenance,
@@ -111,6 +116,11 @@ rules behind the pipeline and test duplicates and partial failures. Model
 changes require a migration, rollback reasoning, fixtures, and an impact note.
 Experimental integrations should begin as an adapter or proposal, not a hard
 dependency.
+
+Phase 4B artifacts are queued through the HelixMind worker and stored beneath
+the private `HELIXMIND_ARTIFACT_ROOT`; the storage directory must never be
+served as a public web directory. Phase 4C workstation filters must remain
+server-backed or explicitly bounded to a selected snapshot.
 
 ## Branches, commits, and pull requests
 

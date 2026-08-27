@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     auth_sync_secret: str = ""
     admin_email: str = "gethsun09@gmail.com"
     omegaclaw_timeout_seconds: int = 900
+    artifact_root: str = "/opt/HelixMind/.artifacts"
 
     @property
     def cors_origin_list(self) -> list[str]:

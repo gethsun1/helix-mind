@@ -51,7 +51,9 @@ does not imply that every future research capability is complete.
 | Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
 | Scientific evidence reasoning, hypotheses, contradictions, gaps, traces | Implemented additively in Phase 3E; deterministic source-linked aggregation |
 | Phase 4A reproducibility foundation | Implemented; run lineage, immutable hashed snapshots, reruns, comparisons, and owner-scoped APIs |
-| Obsidian export / ERN-AI ingestion | Planned; no speculative dependency added |
+| Phase 4B research artifacts | Implemented; deterministic Markdown, scientific report, and private Obsidian vault exports from immutable snapshots |
+| Phase 4C scientific workstation UX | Implemented; research quest milestones, evidence explorer, hypothesis evidence balance, health indicators, and artifact controls |
+| ERN-AI ingestion | Reserved; no speculative dependency added |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
 ## Architecture
@@ -77,7 +79,9 @@ PostgreSQL ◄───────────────┐
                                       │
                                       ├─ OmegaClaw research planning
                                       ├─ PubMed / NCBI retrieval
-                                      └─ Europe PMC retrieval
+                                      ├─ Europe PMC retrieval
+                                      └─ snapshot-based artifact generation
+                                           └─ private Markdown / JSON / ZIP storage
 
 Separate constrained proof runtime:
 OmegaClaw Core → PeTTa → MeTTa → NAL/PLN proof
@@ -124,6 +128,10 @@ Abstract evidence → exact claims → entities → explicit relationships → g
 PHASE 3E REASONING LAYER
 Evidence polarity → contradiction pairs → deterministic confidence assessment
 → qualified hypotheses → knowledge gaps / research opportunities → trace
+
+PHASE 4B/4C WORKSTATION LAYER
+Completed run → immutable snapshot → deterministic research artifact projection
+→ Research Quest milestones / health → evidence explorer / Hypothesis Lab
 ```
 
 The current worker retrieves and persists source records, extracts exact
@@ -161,8 +169,10 @@ graph:
   gap detection, and reasoning completion.
 
 The implemented reasoning rule is `direct_evidence_balance`; a general-purpose
-NAL rule library is not claimed as complete. ERN-AI and Obsidian/Markdown export
-remain future boundaries. See [the Phase 3E design note](./docs/SCIENTIFIC_REASONING.md).
+NAL rule library is not claimed as complete. ERN-AI and semantic contradiction
+detection remain future boundaries. Phase 4B exports preserve the Phase 3E
+distinctions in deterministic, snapshot-labelled artifacts. See [the Phase 3E
+design note](./docs/SCIENTIFIC_REASONING.md) and [the research artifact notes](./docs/RESEARCH_ARTIFACTS.md).
 
 The live verification corpus contained 18 genuine retrieved papers and
 produced 192 source-linked evidence records, 22 propositions, 22 hypotheses
@@ -245,7 +255,8 @@ session. Important routes include:
 | `GET/POST /investigations/{id}/runs` | Owner-scoped run lineage and queued reproducible reruns |
 | `GET/POST /investigations/{id}/snapshots` | Immutable run snapshots and source manifests |
 | `GET /investigations/{id}/snapshots/compare` | Deterministic comparison of two snapshots |
-| `GET /investigations/{id}/snapshots/{snapshot}/artifacts` | Future artifact contracts for a snapshot |
+| `GET/POST /investigations/{id}/snapshots/{snapshot}/artifacts` | List or generate private Markdown, scientific report, or Obsidian artifacts |
+| `GET /investigations/{id}/snapshots/{snapshot}/artifacts/{artifact}/download` | Download a completed owner-scoped artifact |
 | `GET /papers/{id}` | Paper detail and investigation provenance |
 | `GET /literature/search` | Search the authenticated user's corpus |
 | `GET /admin/diagnostics` | Redacted diagnostics for administrators |
@@ -329,14 +340,32 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - Deterministic snapshot comparisons for added, removed, and changed records,
   provider metadata, formula versions, and manifest digests
 
+### Completed: Phase 4B — Research artifacts
+
+- Deterministic Markdown investigation reports and machine-readable structured
+  scientific reports generated only from immutable snapshot manifests
+- Private, owner-scoped artifact registry, queued worker generation, atomic
+  storage, SHA-256 content digests, media types, byte sizes, lifecycle status,
+  and authenticated downloads
+- Obsidian-compatible vault ZIP exports with deterministic filenames, stable
+  ordering, paper/evidence/proposition/hypothesis/gap/reasoning notes, source
+  links, bibliography, and manifest/provenance files
+- Missing identifiers and unavailable source fields remain explicitly missing;
+  exports do not fabricate citations or scientific conclusions
+
+### Completed: Phase 4C — Scientific workstation UX
+
+- Research Quest milestone progress and research-health counts derived from
+  persisted investigation events and owner-scoped records
+- Server-backed evidence explorer filters for polarity, confidence, paper,
+  proposition, and provenance completeness
+- Hypothesis Lab evidence balance showing supporting and contradictory records
+  with source links and explicit confidence semantics
+- Snapshot/run controls, artifact generation and download status, and clear
+  loading, empty, failed, partial, and responsive mobile states
+
 ### Roadmap — pending Phase 4 work
 
-- **Phase 4B — Research artifacts:** Markdown, structured scientific report,
-  and Obsidian vault exports with citation-complete provenance and artifact
-  generation/download
-- **Phase 4C — Scientific UX:** research-progress timeline, evidence explorer,
-  confidence/provenance indicators, Hypothesis Lab, knowledge-gap views, and
-  responsive loading, empty, error, and mobile states
 - **Phase 4D — Knowledge Graph 2.0:** typed and filterable graph queries,
   provenance-aware expansion and drill-down, snapshot-aware views, and an
   accessible table/list fallback
@@ -354,6 +383,10 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - **Reserved ERN-AI track:** evaluate as an optional upstream attention and
   prioritization adapter; it is not a Phase 4 core dependency or source of
   scientific truth
+
+Public publishing, social/community features, leaderboards, and public
+research sharing are not part of the implemented Phase 4 scope. Artifact
+downloads remain private and owner-scoped.
 
 ## How to contribute
 
