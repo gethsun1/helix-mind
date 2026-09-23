@@ -32,7 +32,7 @@ clinical probabilities.
 
 ## Current status
 
-This index reflects the repository and isolated runtime inspected on 2026-08-25.
+This index reflects the repository and isolated runtime inspected on 2026-09-23.
 “Verified” means supported by source inspection, tests, or a live check; it
 does not imply that every future research capability is complete.
 
@@ -53,6 +53,7 @@ does not imply that every future research capability is complete.
 | Phase 4A reproducibility foundation | Implemented; run lineage, immutable hashed snapshots, reruns, comparisons, and owner-scoped APIs |
 | Phase 4B research artifacts | Implemented; deterministic Markdown, scientific report, and private Obsidian vault exports from immutable snapshots |
 | Phase 4C scientific workstation UX | Implemented; research quest milestones, evidence explorer, hypothesis evidence balance, health indicators, and artifact controls |
+| Persistent Research Memory / OMEGA AI Agents Track 03 | Implemented; explicit owner-scoped decisions persist across sessions, change later research plans and retrieval, and are recorded in run manifests and audit events |
 | ERN-AI ingestion | Reserved; no speculative dependency added |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
 
@@ -72,7 +73,7 @@ HelixMind FastAPI API
     │ owner-scoped investigation and literature routes
     ▼
 PostgreSQL ◄───────────────┐
-    │ users, investigations, papers, evidence, claims, propositions, hypotheses,
+    │ users, investigations, research memories, papers, evidence, claims, propositions, hypotheses,
     │ contradictions, knowledge gaps, reasoning traces, graph provenance
     │                        │
     └── queued job ──► Redis / RQ ──► HelixMind worker
@@ -114,6 +115,7 @@ CURRENT PRODUCT PATH
 Question → investigation record → RQ queue → OmegaClaw plan
          → PubMed / Europe PMC retrieval → normalization → deduplication
          → persisted paper-to-investigation provenance and event trace
+         → active research memory applied to planning, retrieval, and ranking
 
 Knowledge extraction → exact abstract evidence → claims/entities
                     → explicit relationships → bounded graph → MeTTa validation
@@ -138,6 +140,38 @@ The current worker retrieves and persists source records, extracts exact
 abstract claims and evidence, derives explicit propositions, and runs the
 deterministic Phase 3E evidence aggregation stage. It does not generate
 autonomous scientific conclusions or clinical recommendations.
+
+### Persistent Research Memory — OMEGA AI Agents Track 03
+
+Researchers can explicitly save a structured decision to an investigation.
+Memory rows are PostgreSQL-backed and scoped to both the investigation and its
+owner. Each record retains its type, decision text, timestamp, active state,
+source run and snapshot when supplied, and audit metadata. Memories can be
+deactivated without deleting their history. Free text is retained as the
+researcher's recorded decision; the worker applies only the selected supported
+memory type, rather than treating it as an unrestricted hidden prompt.
+
+The current supported decisions have deterministic effects:
+
+- **Human clinical priority** adds human and clinical-trial terms to the
+  PubMed and Europe PMC search queries and raises the ranking of papers whose
+  publication type or MeSH metadata identifies human/clinical evidence.
+- **Off-target constraint** adds off-target effects as a required research
+  objective and retrieval concept in the subsequent plan.
+
+At run start, the worker loads active memories for the investigation owner,
+records the exact memory IDs and decision text in the immutable run input
+manifest, and persists a `research_memory_applied` event with the policy and
+actions used. The derived plan, search queries, search filters, paper ranking
+reasons, evidence, and reasoning remain inspectable through the existing
+workstation provenance chain. The interface can list and deactivate memories,
+link them to the originating run/snapshot, and show where a later run applied
+them. See the focused implementation and persistence tests in
+[`backend/tests/test_research_memory.py`](./backend/tests/test_research_memory.py).
+
+The Vercel frontend build succeeds locally. A Git deployment is still required
+for the latest workstation UI to appear on the hosted frontend; its deployment
+status is checked separately from this repository's build result.
 
 ### Phase 3E scientific reasoning
 
@@ -215,10 +249,12 @@ The repository contains two distinct capabilities:
    not yet a general autonomous research agent and is not equivalent to the
    future evidence-reasoning layer.
 
-The proof uses configured Gemini first and Groq fallback. Provider credentials
-are environment-only. The verified proof output is an evidence-system truth
-value, not medical efficacy or clinical probability. See
-[the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
+The local HBB-to-sickle-cell MeTTa deduction and proof contract pass. The full
+OmegaClaw bounded agent proof has not completed within its 60-second timeout;
+the timeout and worker failure handling remain enabled. An interrupted full
+proof can destabilize its Janus/SWI-Prolog child, so HelixMind does not claim
+full OmegaClaw proof success. Provider credentials remain environment-only.
+See [the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
 
 ## ERN-AI boundary proposal
 
@@ -252,6 +288,8 @@ session. Important routes include:
 | `GET /investigations/{id}/knowledge-gaps` | Evidence deficiencies and research opportunities |
 | `GET /investigations/{id}/reasoning` | Reasoning summary and persisted results |
 | `GET /investigations/{id}/reasoning/trace` | Inspectable proposition-to-result traces |
+| `GET/POST /investigations/{id}/memories` | List or explicitly save owner-scoped research decisions |
+| `POST /investigations/{id}/memories/{memory}/deactivate` | Deactivate a memory while retaining its audit history |
 | `GET/POST /investigations/{id}/runs` | Owner-scoped run lineage and queued reproducible reruns |
 | `GET/POST /investigations/{id}/snapshots` | Immutable run snapshots and source manifests |
 | `GET /investigations/{id}/snapshots/compare` | Deterministic comparison of two snapshots |
@@ -291,7 +329,7 @@ backend/app/            FastAPI routes, models, queue jobs, literature/knowledge
 backend/migrations/     Alembic environment and versioned schema changes
 backend/omegaclaw/      constrained provider/channel and proof configuration
 backend/reasoning/      source-grounded MeTTa programs
-backend/tests/          API, database, literature, auth, and proof contracts
+backend/tests/          API, database, literature, auth, proof, and memory contracts
 deploy/                 HelixMind-only systemd, Redis, Nginx, and env examples
 docs/                   literature, knowledge, inference, runtime, infrastructure, integration notes
 ```
@@ -326,7 +364,7 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - MeTTa representation and PeTTa validation for the Phase 3E reasoning facts
 - Asynchronous worker lifecycle, persisted reasoning events, protected APIs,
   and investigation/hypothesis/knowledge graph visualizations
-- Phase 3E regression and end-to-end corpus tests; 36 backend tests passing
+- Phase 3E regression and end-to-end corpus tests
 
 ### Completed: Phase 4A — Reproducibility foundation
 
@@ -363,6 +401,18 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
   with source links and explicit confidence semantics
 - Snapshot/run controls, artifact generation and download status, and clear
   loading, empty, failed, partial, and responsive mobile states
+
+### Completed: Persistent Research Memory — OMEGA AI Agents Track 03
+
+- Explicit, typed, owner-scoped decisions persisted in PostgreSQL with source
+  run/snapshot links, active/deactivated lifecycle, and audit metadata
+- Human-clinical memory changes PubMed and Europe PMC queries and relevance
+  ranking; off-target memory changes subsequent plan objectives and search
+  concepts
+- Memory IDs and applied policy are captured in run input manifests and linked
+  to persisted planning, search, evidence, and reasoning records
+- Workstation controls to save, restore, review, and deactivate decisions;
+  complete backend suite passes (45 tests)
 
 ### Roadmap — pending Phase 4 work
 

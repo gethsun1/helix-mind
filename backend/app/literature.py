@@ -443,10 +443,12 @@ def build_search_strategy(research_plan: dict[str, Any], research_question: str)
     pubmed_intervention = " OR ".join(f'"{concept}"[Title/Abstract]' for concept in intervention_terms)
     europe_anchor = " OR ".join(f'TITLE_ABS:"{concept}"' for concept in anchor_terms)
     europe_intervention = " OR ".join(f'TITLE_ABS:"{concept}"' for concept in intervention_terms)
-    return {
-        "pubmed": f"({pubmed_anchor}) AND ({pubmed_intervention})",
-        "europe_pmc": f"({europe_anchor}) AND ({europe_intervention})",
-    }
+    pubmed_query = f"({pubmed_anchor}) AND ({pubmed_intervention})"
+    europe_query = f"({europe_anchor}) AND ({europe_intervention})"
+    if research_plan.get("memory_policy", {}).get("prioritize_human_clinical"):
+        pubmed_query += ' AND (Humans[MeSH Terms] OR Clinical Trial[Publication Type] OR Randomized Controlled Trial[Publication Type])'
+        europe_query += ' AND (human OR "clinical trial" OR "randomized controlled trial")'
+    return {"pubmed": pubmed_query, "europe_pmc": europe_query}
 
 
 def _search_term(concept: str) -> str:
@@ -637,7 +639,14 @@ def rank_investigation_papers(session: Session, investigation_id: object, resear
         abstract_overlap = min(1.0, sum(len(concept_tokens[item] & abstract_tokens) for item in matched) / max(1, sum(len(value) for value in concept_tokens.values())))
         recency = max(0.0, 1.0 - max(0, current_year - paper.publication_date.year) / 10) if paper.publication_date else 0.0
         score = min(1.0, 0.6 * title_overlap + 0.3 * abstract_overlap + 0.1 * recency)
-        reason = f"Matched {len(matched)} of {len(concepts)} OmegaClaw plan concepts in source title/abstract; recency is a secondary ordering signal."
+        clinical = research_plan.get("memory_policy", {}).get("prioritize_human_clinical")
+        paper_types = " ".join(str(item) for item in (paper.publication_type or [])).lower()
+        human_signal = "human" in paper_types or any(term in paper_types for term in ("clinical trial", "randomized controlled trial")) or "humans" in " ".join(str(item) for item in (paper.mesh_terms or [])).lower()
+        if clinical and human_signal:
+            score = min(1.0, score + 0.15)
+        reason = f"Matched {len(matched)} of {len(concepts)} OmegaClaw plan concepts; recency is secondary."
+        if clinical:
+            reason += " Active research memory prioritizes human/clinical evidence; this paper " + ("matched" if human_signal else "did not match") + " the available publication type or MeSH human signal."
         ranked.append((score, association, reason))
     ranked.sort(key=lambda item: (-item[0], str(item[1].paper_id)))
     for position, (score, association, reason) in enumerate(ranked, start=1):

@@ -245,7 +245,7 @@ def router_from_environment(*, client: httpx.Client | None = None) -> InferenceR
     providers: dict[str, InferenceProvider] = {
         "asi": asi,
         "groq": _compatible_from_environment("groq", key_env="GROQ_API_KEY", base_env="GROQ_BASE_URL", model_env="GROQ_MODEL", default_base="https://api.groq.com/openai/v1", default_model="openai/gpt-oss-20b", client=client),
-        "gemini": _compatible_from_environment("gemini", key_env="GEMINI_API_KEY", base_env="GEMINI_BASE_URL", model_env="GEMINI_MODEL", default_base="https://generativelanguage.googleapis.com/v1beta/openai/", default_model="gemini-2.5-flash", client=client),
+        "gemini": _compatible_from_environment("gemini", key_env="GEMINI_API_KEY", base_env="GEMINI_BASE_URL", model_env="GEMINI_MODEL", default_base="https://generativelanguage.googleapis.com/v1beta/openai/", default_model="gemini-3.5-flash", client=client),
     }
     order = [item.strip().lower() for item in os.getenv("OMEGACLAW_PROVIDER_ORDER", "gemini,groq").split(",") if item.strip()]
     if os.getenv("OMEGACLAW_PROVIDER", "").strip().lower() == "asi":

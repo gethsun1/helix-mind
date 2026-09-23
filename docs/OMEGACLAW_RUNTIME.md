@@ -46,7 +46,7 @@ The proof configuration and adapter are versioned in `backend/omegaclaw/`:
 
 | Role | Configuration |
 | --- | --- |
-| Primary LLM | Google Gemini via its OpenAI-compatible endpoint; model `gemini-2.5-flash`; key name `GEMINI_API_KEY` |
+| Primary LLM | Google Gemini via its OpenAI-compatible endpoint; model `gemini-3.5-flash`; key name `GEMINI_API_KEY` |
 | Fallback LLM | Groq via its OpenAI-compatible endpoint; model `openai/gpt-oss-20b`; key name `GROQ_API_KEY` |
 | OmegaClaw provider selector | Core's documented `OpenAIAPI` selector, overridden only in the private HelixMind proof plugin to add ordered failover |
 | Channel | One-shot in-process `helixmind-proof`; no listener, socket, or external chat channel |
@@ -69,17 +69,22 @@ library:
  ((--> SickleCellDisease HBB) (stv 1.0 0.4609164420485175)))
 ```
 
-The requested Gemini model is configured as primary, but the live Gemini API
-currently returns HTTP 404 for `gemini-2.5-flash`; the proof therefore used
-the configured Groq fallback. This is a provider/model availability issue, not
-an authentication claim. Keep the fallback enabled until the selected Gemini
-model is available to the configured account.
+The configured Gemini key was verified against the account's models endpoint,
+and `gemini-3.5-flash` accepted a direct chat-completions request. The former
+`gemini-2.5-flash` configuration returned HTTP 404. The configured Groq fallback
+currently returns HTTP 403. The complete OmegaClaw agent proof has not yet
+completed: it exceeded its 60-second bound before producing an inference
+result, and interrupting Janus/Python caused SWI-Prolog to segfault. Do not
+enable the production worker until this end-to-end proof completes and the
+fallback/provider behavior is resolved.
 
-A small private-runtime compatibility patch makes the upstream prompt resolver
-use its default prompt because PeTTa turns a dynamic provider-specific prompt
-path into an invalid overlong path. It changes neither OmegaClaw reasoning nor
-its provider protocol. The patch is intentionally documented here because the
-private `.runtime/` directory is excluded from Git.
+Private runtime compatibility changes (the `.runtime/` directory is excluded
+from Git) register the HelixMind proof plugin, define the missing `_error`
+helper in OmegaClaw Core's channel bridge, use the default prompt instead of a
+PeTTa-generated invalid provider-specific path, and avoid loading the large
+local embedding model for the OpenAI-embedding proof configuration. These
+changes do not alter OmegaClaw reasoning or its provider protocol. Preserve
+them when rebuilding the pinned runtime.
 
 ## Full agent-loop boundary
 

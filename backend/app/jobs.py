@@ -4,12 +4,13 @@ import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
+from sqlalchemy import select
 
 from app.db import SessionLocal
 from app.config import get_settings
 from app.knowledge import extract_investigation_knowledge
 from app.literature_pipeline import LiteraturePipelineError, run_literature_pipeline
-from app.models import Investigation, InvestigationEvent, InvestigationRun
+from app.models import Investigation, InvestigationEvent, InvestigationRun, ResearchMemory
 from app.models import ResearchArtifact, ResearchSnapshot
 from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
 from app.research_reproducibility import create_run, digest_json, freeze_snapshot
@@ -65,6 +66,14 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
         if run_uuid is not None and run.status != "QUEUED":
             return {"status": run.status}
         active_run_id = run.id
+        active_memories = session.scalars(select(ResearchMemory).where(
+            ResearchMemory.owner_id == investigation.owner_id,
+            ResearchMemory.investigation_id == investigation.id,
+            ResearchMemory.active.is_(True),
+        ).order_by(ResearchMemory.created_at, ResearchMemory.id)).all()
+        memory_inputs = [{"id": str(memory.id), "type": memory.memory_type, "decision_text": memory.decision_text}
+                         for memory in active_memories]
+        run.input_manifest = {**(run.input_manifest or {}), "research_memories": memory_inputs}
         run.status = "RUNNING"
         run.started_at = datetime.now(timezone.utc)
         investigation.status = "PLANNING"
@@ -77,6 +86,23 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
             research_question=investigation.question,
             domain=investigation.domain,
         )
+        policy = {"memory_ids": [item["id"] for item in memory_inputs]}
+        for memory in active_memories:
+            if memory.memory_type == "HUMAN_CLINICAL_PRIORITY":
+                policy["prioritize_human_clinical"] = True
+                plan.setdefault("evidence_categories", []).append("Human clinical evidence prioritized by saved research decision")
+            elif memory.memory_type == "OFF_TARGET_CONSTRAINT":
+                policy["require_off_target_consideration"] = True
+                plan.setdefault("research_objectives", []).append("Explicitly consider off-target effects as a critical constraint")
+                plan.setdefault("key_concepts", []).append("CRISPR off-target effects")
+        if active_memories:
+            plan["memory_policy"] = policy
+            run.input_manifest = {**(run.input_manifest or {}), "applied_memory_policy": policy}
+            _event(session, investigation.id, "research_memory_applied", "Persisted research decisions were applied to this run's plan and literature retrieval.", {
+                "run_id": str(run.id), "memory_ids": policy["memory_ids"], "policy": policy,
+                "actions": ["human-clinical-query-and-ranking" for m in active_memories if m.memory_type == "HUMAN_CLINICAL_PRIORITY"] +
+                           ["off-target-required-plan-consideration" for m in active_memories if m.memory_type == "OFF_TARGET_CONSTRAINT"],
+            })
         investigation.research_plan = plan
         run.plan_hash = digest_json(plan)
         run.provider_metadata = plan.get("_metadata", {}) if isinstance(plan, dict) else {}

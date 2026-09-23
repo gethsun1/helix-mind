@@ -23,6 +23,7 @@ type Reasoning = { hypotheses: number; contradictions: number; knowledgeGaps: nu
 type Run = { id: string; runNumber: number; status: string; snapshotId: string | null; parentRunId: string | null; startedAt: string | null; completedAt: string | null };
 type Snapshot = { id: string; runId: string; snapshotNumber: number; manifestDigest: string; formulaVersion: string | null; createdAt: string };
 type Artifact = { id: string; snapshotId: string; artifactType: string; artifactFormat: string; status: string; contentDigest: string | null; contentType: string | null; fileSize: number | null; errorMessage: string | null; downloadUrl: string | null; completedAt: string | null };
+type Memory = { id: string; investigation_id: string; memory_type: string; decision_text: string; source_run_id: string | null; source_snapshot_id: string | null; active: boolean; deactivated_at: string | null; metadata: Record<string, unknown> | null; created_at: string };
 
 const PLAN_FIELDS = ['research_objectives', 'research_questions', 'search_strategies', 'key_concepts', 'evidence_categories', 'reasoning_tasks'];
 const ARTIFACT_TYPES = [['MARKDOWN', 'Markdown research export'], ['SCIENTIFIC_REPORT', 'Structured scientific report'], ['OBSIDIAN_VAULT', 'Obsidian vault (.zip)']] as const;
@@ -55,6 +56,11 @@ export default function InvestigationPage() {
   const [artifactError, setArtifactError] = useState('');
   const [busy, setBusy] = useState(false);
   const [artifactBusy, setArtifactBusy] = useState(false);
+  const [memories, setMemories] = useState<Memory[]>([]);
+  const [memoryType, setMemoryType] = useState('HUMAN_CLINICAL_PRIORITY');
+  const [memoryText, setMemoryText] = useState('Prioritize human clinical evidence in subsequent research.');
+  const [memoryBusy, setMemoryBusy] = useState(false);
+  const [memoryError, setMemoryError] = useState('');
 
   const load = useCallback(async () => {
     const paperQuery = new URLSearchParams({ page: String(paperPage), pageSize: '8' });
@@ -63,7 +69,7 @@ export default function InvestigationPage() {
     if (source) evidenceQuery.set('paperSource', source);
     if (evidencePolarity) evidenceQuery.set('polarity', evidencePolarity);
     if (minimumConfidence) evidenceQuery.set('minConfidence', minimumConfidence);
-    const [investigationResponse, papersResponse, searchesResponse, evidenceResponse, hypothesesResponse, contradictionsResponse, gapsResponse, reasoningResponse, runsResponse, snapshotsResponse] = await Promise.all([
+    const [investigationResponse, papersResponse, searchesResponse, evidenceResponse, hypothesesResponse, contradictionsResponse, gapsResponse, reasoningResponse, runsResponse, snapshotsResponse, memoriesResponse] = await Promise.all([
       fetch(`/api/backend/api/v1/investigations/${id}`, { cache: 'no-store' }),
       fetch(`/api/backend/api/v1/investigations/${id}/papers?${paperQuery}`, { cache: 'no-store' }),
       fetch(`/api/backend/api/v1/investigations/${id}/searches`, { cache: 'no-store' }),
@@ -74,6 +80,7 @@ export default function InvestigationPage() {
       fetch(`/api/backend/api/v1/investigations/${id}/reasoning`, { cache: 'no-store' }),
       fetch(`/api/backend/api/v1/investigations/${id}/runs`, { cache: 'no-store' }),
       fetch(`/api/backend/api/v1/investigations/${id}/snapshots`, { cache: 'no-store' }),
+      fetch(`/api/backend/api/v1/investigations/${id}/memories`, { cache: 'no-store' }),
     ]);
     if (!investigationResponse.ok) { setError(investigationResponse.status === 404 ? 'Investigation not found.' : 'Investigation could not be loaded.'); return; }
     setInvestigation(await investigationResponse.json());
@@ -85,6 +92,7 @@ export default function InvestigationPage() {
     if (gapsResponse.ok) setGaps(await gapsResponse.json());
     if (reasoningResponse.ok) setReasoning(await reasoningResponse.json());
     if (runsResponse.ok) setRuns(await runsResponse.json());
+    if (memoriesResponse.ok) setMemories(await memoriesResponse.json());
     if (snapshotsResponse.ok) {
       const values: Snapshot[] = await snapshotsResponse.json();
       setSnapshots(values);
@@ -133,6 +141,20 @@ export default function InvestigationPage() {
     setArtifactBusy(false);
   }
 
+  async function saveMemory() {
+    setMemoryBusy(true); setMemoryError('');
+    const response = await fetch(`/api/backend/api/v1/investigations/${id}/memories`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ memory_type: memoryType, decision_text: memoryText, source_run_id: runs[0]?.id ?? null, source_snapshot_id: snapshots.find(item => item.runId === runs[0]?.id)?.id ?? null }) });
+    if (!response.ok) setMemoryError('Research memory could not be saved.'); else await load();
+    setMemoryBusy(false);
+  }
+
+  async function deactivateMemory(memoryId: string) {
+    setMemoryBusy(true); setMemoryError('');
+    const response = await fetch(`/api/backend/api/v1/investigations/${id}/memories/${memoryId}/deactivate`, { method: 'POST' });
+    if (!response.ok) setMemoryError('Research memory could not be deactivated.'); else await load();
+    setMemoryBusy(false);
+  }
+
   const planEntries = useMemo(() => PLAN_FIELDS.filter(key => Array.isArray(investigation?.researchPlan?.[key])), [investigation]);
   const sourceCounts = useMemo(() => papers?.items.reduce<Record<string, number>>((counts, paper) => { for (const item of paper.sourceRecords.length ? paper.sourceRecords : [paper.source]) counts[item] = (counts[item] || 0) + 1; return counts; }, {}) ?? {}, [papers]);
   const dedupEvent = investigation?.events.find(event => event.type === 'papers_deduplicated');
@@ -147,6 +169,7 @@ export default function InvestigationPage() {
     <section className="progress-panel panel"><div className="panel-heading"><div><p className="eyebrow">RESEARCH QUEST</p><h2>Investigation progression</h2></div><span className="phase-note">DERIVED FROM RECORDS</span></div><div className="milestone-grid">{(investigation.milestones ?? []).map(item => <div className={`milestone milestone-${item.status.toLowerCase()}`} key={item.key}><span className="milestone-marker">{item.status === 'ACHIEVED' ? '✓' : item.status === 'CURRENT' ? '•' : '○'}</span><div><b>{item.label}</b><small>{item.status.toLowerCase()} · {item.evidence}</small>{item.achievedAt && <small>{formatDate(item.achievedAt)}</small>}</div></div>)}</div></section>
     <div className="health-grid">{[['Papers', investigation.health?.papers ?? 0], ['Evidence', investigation.health?.evidence ?? 0], ['With provenance', investigation.health?.evidenceWithProvenance ?? 0], ['Propositions', investigation.health?.propositions ?? 0], ['Hypotheses', investigation.health?.hypotheses ?? 0], ['Open gaps', investigation.health?.knowledgeGaps ?? 0]].map(([label, value]) => <div className="health-card" key={String(label)}><span>{label}</span><b>{value}</b></div>)}</div>
     <div className="workspace-grid"><section>
+      <div className="panel memory-panel"><div className="panel-heading"><div><p className="eyebrow">PERSISTENT AGENT / TRACK 03</p><h2>Research Memory</h2></div><span className="phase-note">POSTGRESQL</span></div><p className="muted-copy">Save a deliberate research decision. Active decisions load into later runs and change planning, retrieval, or ranking.</p><label className="filter-label">Decision type<select value={memoryType} onChange={event => setMemoryType(event.target.value)}><option value="HUMAN_CLINICAL_PRIORITY">Prioritize human clinical evidence</option><option value="OFF_TARGET_CONSTRAINT">Require off-target consideration</option></select></label><label className="filter-label">Research decision<textarea value={memoryText} onChange={event => setMemoryText(event.target.value)} maxLength={1000} rows={3} /></label><button className="button button-small" onClick={saveMemory} disabled={memoryBusy || memoryText.trim().length < 8}>{memoryBusy ? 'Saving…' : 'Remember this decision'}</button>{memoryError && <p className="error-text">{memoryError}</p>}<div className="memory-list">{memories.length === 0 ? <p className="muted-copy">No saved decisions. Save one after your initial run, then queue a rerun to demonstrate behavior across sessions.</p> : memories.map(memory => <article className="memory-record" key={memory.id}><div className="panel-heading"><b>{pretty(memory.memory_type)}</b><span className="status-chip">{memory.active ? 'ACTIVE' : 'INACTIVE'}</span></div><p>{memory.decision_text}</p><small>Saved {formatDate(memory.created_at)} · run {memory.source_run_id?.slice(0, 8) || 'not linked'}{memory.source_snapshot_id ? ` · snapshot ${memory.source_snapshot_id.slice(0, 8)}` : ''}</small>{memory.active && <button className="button button-ghost button-small" onClick={() => deactivateMemory(memory.id)} disabled={memoryBusy}>Deactivate</button>}</article>)}</div><h3>Decision → plan → sources → evidence → reasoning</h3>{investigation.events.filter(event => event.type === 'research_memory_applied').map(event => <article className="memory-record" key={event.id}><b>Memory applied · run {String(event.metadata?.run_id ?? '').slice(0, 8)}</b><p>{event.message}</p><small>{Array.isArray(event.metadata?.actions) ? event.metadata.actions.join(' · ') : 'No action detail recorded'} · {formatDate(event.createdAt)}</small></article>)}</div>
       <div className="panel literature-panel"><div className="panel-heading"><div><p className="eyebrow">LITERATURE</p><h2>Source-grounded papers</h2></div><span className="phase-note">Phase 3C</span></div><div className="literature-metrics"><div><b>{papers?.total ?? 0}</b><span>unique papers</span></div><div><b>{sourceCounts.PUBMED ?? 0}</b><span>PubMed records</span></div><div><b>{sourceCounts.EUROPE_PMC ?? 0}</b><span>Europe PMC records</span></div><div><b>{duplicatesRemoved}</b><span>duplicates removed</span></div></div>{papers && papers.items.length > 0 ? <><div className="paper-list">{papers.items.map(paper => <article className="paper-card" key={paper.id}><div className="paper-card-top"><span className="source-label">{paper.sourceRecords.join(' · ')}</span>{paper.relevanceScore !== null && <span className="relevance-label">Relevance {Math.round(paper.relevanceScore * 100)}%</span>}</div><h3><Link href={`/literature/${paper.id}`}>{paper.title}</Link></h3><p className="paper-meta">{paper.authors?.slice(0, 4).join(', ') || 'Author information unavailable'} · {paper.journal || 'Journal unavailable'} · {formatPaperDate(paper.publicationDate)}</p><p className="paper-abstract">{paper.abstract || 'Abstract unavailable from source.'}</p><div className="paper-card-bottom">{paper.pmid && <span>PMID {paper.pmid}</span>}{paper.doi && <span>DOI {paper.doi}</span>}{paper.url && <a href={paper.url} target="_blank" rel="noreferrer">Original source ↗</a>}</div></article>)}</div><div className="pagination"><button className="button button-ghost button-small" disabled={paperPage <= 1} onClick={() => setPaperPage(value => value - 1)}>← Previous</button><span>Page {papers.page} of {papers.pageCount}</span><button className="button button-ghost button-small" disabled={paperPage >= papers.pageCount} onClick={() => setPaperPage(value => value + 1)}>Next →</button></div></> : <div className="plan-empty"><span>∴</span><p>{investigation.status.toUpperCase() === 'SEARCHING' ? 'Literature sources are being queried.' : 'No papers were returned by the available sources.'}</p></div>}<p className="phase-disclaimer">Relevance is a transparent ordering signal based on plan-concept overlap and recency. It is not scientific evidence strength.</p></div>
       <div className="panel"><div className="panel-heading"><div><p className="eyebrow">OMEGACLAW PLAN</p><h2>Research strategy</h2></div></div>{investigation.researchPlan && planEntries.length > 0 ? <div className="plan-grid">{planEntries.map(key => <div className="plan-block" key={key}><h3>{pretty(key)}</h3><ul>{(investigation.researchPlan?.[key] as string[]).map((item, index) => <li key={`${key}-${index}`}>{item}</li>)}</ul></div>)}</div> : <div className="plan-empty"><span>∴</span><p>{investigation.status.toUpperCase() === 'FAILED' ? investigation.errorMessage : 'OmegaClaw is preparing the structured research plan.'}</p></div>}<p className="phase-disclaimer">The reasoning panels preserve source evidence, uncertainty, and the deterministic inference trace.</p></div>
     </section><aside>
