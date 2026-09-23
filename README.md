@@ -160,18 +160,19 @@ The current supported decisions have deterministic effects:
   objective and retrieval concept in the subsequent plan.
 
 At run start, the worker loads active memories for the investigation owner,
-records the exact memory IDs and decision text in the immutable run input
-manifest, and persists a `research_memory_applied` event with the policy and
-actions used. The derived plan, search queries, search filters, paper ranking
+records the exact memory IDs and decision text in the run input manifest,
+which is carried into the immutable run snapshot, and persists a
+`research_memory_applied` event with the policy and actions used. The derived
+plan, search queries, search filters, paper ranking
 reasons, evidence, and reasoning remain inspectable through the existing
 workstation provenance chain. The interface can list and deactivate memories,
 link them to the originating run/snapshot, and show where a later run applied
 them. See the focused implementation and persistence tests in
 [`backend/tests/test_research_memory.py`](./backend/tests/test_research_memory.py).
 
-The Vercel frontend build succeeds locally. A Git deployment is still required
-for the latest workstation UI to appear on the hosted frontend; its deployment
-status is checked separately from this repository's build result.
+The frontend builds locally and uses Vercel Git integration: pushed branches
+receive Preview deployments, and the configured production branch updates the
+production alias.
 
 ### Phase 3E scientific reasoning
 
