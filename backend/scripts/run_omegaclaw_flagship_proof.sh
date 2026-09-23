@@ -41,4 +41,4 @@ fi
 export PYTHONPATH="$project_root/backend:$omega_venv/lib/python3.12/site-packages:$omega_core:$omega_core/src:$omega_core/providers:$omega_core/profile${PYTHONPATH:+:$PYTHONPATH}"
 
 cd "$petta_root"
-PATH="$swi_bin:$PATH" timeout --signal=TERM 20 sh run.sh "$run_path" "config=$config_path"
+PATH="$swi_bin:$PATH" timeout --signal=TERM 60 sh run.sh "$run_path" "config=$config_path"

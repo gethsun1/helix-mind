@@ -12,6 +12,7 @@ from app.db import SessionLocal, engine
 from app.inference import InferenceError, asi_cloud_from_environment
 from app.models import User
 from app.routes.investigations import router as investigations_router
+from app.routes.memory import router as memory_router
 from app.routes.literature import router as literature_router
 from app.routes.knowledge import router as knowledge_router
 from app.routes.reasoning import router as reasoning_router
@@ -39,6 +40,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 app.include_router(investigations_router)
+app.include_router(memory_router)
 app.include_router(literature_router)
 app.include_router(knowledge_router)
 app.include_router(reasoning_router)

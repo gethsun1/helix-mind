@@ -62,6 +62,12 @@ SAFE_METADATA_KEYS = {
     "trace_count",
     "type",
     "worker",
+    "memory_id",
+    "memory_ids",
+    "memory_type",
+    "policy",
+    "actions",
+    "run_id",
 }
 
 

@@ -105,6 +105,24 @@ class ResearchSnapshot(UUIDPrimaryKey, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class ResearchMemory(UUIDPrimaryKey, Base):
+    """An explicit, auditable research decision that can influence later runs."""
+
+    __tablename__ = "research_memories"
+    __table_args__ = (Index("ix_research_memories_owner_investigation_active", "owner_id", "investigation_id", "active"),)
+
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    memory_type: Mapped[str] = mapped_column(String(48), nullable=False)
+    decision_text: Mapped[str] = mapped_column(Text, nullable=False)
+    source_run_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("investigation_runs.id", ondelete="SET NULL"), nullable=True)
+    source_snapshot_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("research_snapshots.id", ondelete="SET NULL"), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    deactivated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    audit_metadata: Mapped[dict | None] = mapped_column("metadata", JSONB, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class ResearchArtifact(UUIDPrimaryKey, Base):
     """Registry and private storage contract for an artifact generated from a snapshot."""
 

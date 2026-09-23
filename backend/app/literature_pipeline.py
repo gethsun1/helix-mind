@@ -55,7 +55,8 @@ def run_literature_pipeline(session: Session, investigation: Investigation) -> d
 
     plan["search_strategy"] = strategy
     investigation.research_plan = plan
-    _event(session, investigation.id, "search_strategy_created", "Search strategy derived from the OmegaClaw research plan.", {"sources": [PUBMED, EUROPE_PMC]})
+    memory_policy = plan.get("memory_policy", {})
+    _event(session, investigation.id, "search_strategy_created", "Search strategy derived from the OmegaClaw plan and active saved research decisions.", {"sources": [PUBMED, EUROPE_PMC], "memory_ids": memory_policy.get("memory_ids", []), "policy": memory_policy})
     session.commit()
 
     client = LiteratureClient()
@@ -65,6 +66,9 @@ def run_literature_pipeline(session: Session, investigation: Investigation) -> d
     try:
         for source, query in ((PUBMED, strategy["pubmed"]), (EUROPE_PMC, strategy["europe_pmc"])):
             filters: dict[str, Any] = {}
+            if memory_policy.get("prioritize_human_clinical"):
+                filters["memory_policy"] = "HUMAN_CLINICAL_PRIORITY"
+                filters["memory_ids"] = memory_policy.get("memory_ids", [])
             cache_key = _cache_key(source, query, filters)
             search = session.scalar(select(ResearchSearch).where(ResearchSearch.investigation_id == investigation.id, ResearchSearch.source == source, ResearchSearch.cache_key == cache_key, ResearchSearch.status == "SUCCEEDED", ResearchSearch.executed_at >= datetime.now(timezone.utc) - timedelta(hours=24)).order_by(ResearchSearch.executed_at.desc()))
             if search is not None:

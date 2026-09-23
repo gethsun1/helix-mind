@@ -26,7 +26,7 @@ helixmind_asi_model: asi1-mini
 # Gemini primary; Groq is attempted only for a failed or empty Gemini response.
 helixmind_gemini_api_key_env: GEMINI_API_KEY
 helixmind_gemini_base_url: https://generativelanguage.googleapis.com/v1beta/openai/
-helixmind_gemini_model: gemini-2.5-flash
+helixmind_gemini_model: gemini-3.5-flash
 helixmind_groq_api_key_env: GROQ_API_KEY
 helixmind_groq_base_url: https://api.groq.com/openai/v1
 helixmind_groq_model: openai/gpt-oss-20b
