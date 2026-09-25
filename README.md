@@ -32,7 +32,7 @@ clinical probabilities.
 
 ## Current status
 
-This index reflects the repository and isolated runtime inspected on 2026-09-23.
+This index reflects the repository and isolated runtime inspected on 2026-09-25.
 “Verified” means supported by source inspection, tests, or a live check; it
 does not imply that every future research capability is complete.
 
@@ -46,7 +46,7 @@ does not imply that every future research capability is complete.
 | User profiles and roles | Implemented; PostgreSQL is authoritative for researcher identity and USER/ADMIN role |
 | Investigation ownership | Implemented; API queries enforce owner scope, with explicit admin diagnostics access |
 | PubMed and Europe PMC | Implemented with real retrieval, normalization, PMID/DOI/PMCID deduplication, ranking, and provenance |
-| OmegaClaw planning | Implemented in the worker path, with controlled provider failure handling |
+| OmegaClaw planning | Verified in a live investigation with ASI Cloud `asi1-mini`; 60-second process bound and audited deterministic fallback |
 | OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
 | Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
 | Scientific evidence reasoning, hypotheses, contradictions, gaps, traces | Implemented additively in Phase 3E; deterministic source-linked aggregation |
@@ -56,6 +56,48 @@ does not imply that every future research capability is complete.
 | Persistent Research Memory / OMEGA AI Agents Track 03 | Implemented; explicit owner-scoped decisions persist across sessions, change later research plans and retrieval, and are recorded in run manifests and audit events |
 | ERN-AI ingestion | Reserved; no speculative dependency added |
 | Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
+
+## Production recovery verification (2026-09-25)
+
+A live owner-scoped API investigation verified the worker path from structured
+planning through literature retrieval, evidence extraction, graph construction,
+deterministic reasoning, snapshot creation, and artifact download. The initial
+production failure was an OmegaClaw runtime registry omission: the one-shot
+planning configuration selected `helixmind-planning`, but the private pinned
+runtime had not registered that channel plugin. OmegaClaw stopped during
+channel initialization before contacting an inference provider.
+
+The runtime now registers the planning plugin alongside the proof plugin. The
+adapter sends the bounded research request as JSON and returns a validated
+plan through OmegaClaw's communication channel. ASI Cloud (`asi1-mini`) is the
+primary provider and Gemini is the configured fallback. Groq is omitted from
+the default route while its configured endpoint returns HTTP 403. Planning
+has a 60-second hard bound. If OmegaClaw fails or times out, the worker records
+the failure and uses an explicitly attributed deterministic search plan; it
+does not generate scientific conclusions. The UI discloses this degraded
+state.
+
+The verification investigation retrieved 10 records each from PubMed and
+Europe PMC and persisted 16 deduplicated papers in its first run. Its first
+reasoning pass persisted 153 source-linked evidence records, 33 propositions,
+33 supported hypotheses, one knowledge gap, and no detected contradictions.
+An immutable snapshot and Markdown, structured scientific report, and Obsidian
+vault artifacts were generated; all three downloads succeeded through the
+owner-scoped API with digest headers. Persistent human-clinical-priority memory
+was restored in a separate API session, changed the subsequent source query,
+and was audited. After deactivation, a later run omitted the clinical filter.
+
+The backend suite passed with 49 tests. The local frontend production build
+and Vercel production build passed, and the updated frontend was promoted to
+the production alias. The API, worker, PostgreSQL, Redis, and public HTTPS API
+health checks passed. The live research smoke test used a signed owner-scoped
+API session; an interactive Google OAuth sign-in was not repeated. The
+systemd `caddy.service` unit remains failed because its admin port is already
+occupied, although the HelixMind public HTTPS route responded through Caddy.
+The separate full OmegaClaw NAL agent proof also remains unverified; it is
+distinct from the now-verified bounded planning integration. See the
+[runtime notes](./docs/OMEGACLAW_RUNTIME.md) for the runtime boundary and
+limitations.
 
 ## Architecture
 
@@ -240,22 +282,23 @@ See [the literature pipeline](./docs/LITERATURE_PIPELINE.md), [knowledge layer](
 
 ## OmegaClaw, PeTTa, and MeTTa
 
-The repository contains two distinct capabilities:
+The repository contains distinct OmegaClaw capabilities:
 
 1. The investigation worker invokes OmegaClaw-backed research planning and
-   persists the resulting structured plan. Provider errors are fail-closed and
-   do not leak credentials.
+   persists the resulting structured plan. Provider/runtime failures are
+   audited and can fall back to a deterministic search plan that is disclosed
+   in the UI and does not assert scientific findings.
 2. A constrained local proof runs OmegaClaw Core's plugin/channel mechanism,
    accepts one fixed MeTTa operation, and demonstrates an NAL deduction. It is
    not yet a general autonomous research agent and is not equivalent to the
    future evidence-reasoning layer.
 
-The local HBB-to-sickle-cell MeTTa deduction and proof contract pass. The full
-OmegaClaw bounded agent proof has not completed within its 60-second timeout;
-the timeout and worker failure handling remain enabled. An interrupted full
-proof can destabilize its Janus/SWI-Prolog child, so HelixMind does not claim
-full OmegaClaw proof success. Provider credentials remain environment-only.
-See [the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
+The live bounded planning integration has completed a real ASI-backed
+research investigation. The separate full OmegaClaw bounded NAL agent proof
+has not completed within its 60-second timeout; HelixMind does not claim that
+proof succeeded. An interrupted full proof can destabilize its Janus/SWI-Prolog
+child. Provider credentials remain environment-only. See
+[the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
 
 ## ERN-AI boundary proposal
 

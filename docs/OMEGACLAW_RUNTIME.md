@@ -75,8 +75,11 @@ and `gemini-3.5-flash` accepted a direct chat-completions request. The former
 currently returns HTTP 403. The complete OmegaClaw agent proof has not yet
 completed: it exceeded its 60-second bound before producing an inference
 result, and interrupting Janus/Python caused SWI-Prolog to segfault. Do not
-enable the production worker until this end-to-end proof completes and the
-fallback/provider behavior is resolved.
+interpret that separate proof as the production planning path: the constrained
+one-shot research planner has since completed against ASI Cloud and is enabled
+with a deterministic, audited fallback and a 60-second subprocess bound.
+Gemini remains configured as the secondary provider; Groq is excluded from the
+default order while it returns 403.
 
 Private runtime compatibility changes (the `.runtime/` directory is excluded
 from Git) register the HelixMind proof plugin, define the missing `_error`
@@ -89,7 +92,28 @@ them when rebuilding the pinned runtime.
 ## Full agent-loop boundary
 
 The constrained proof starts the real `omegaclaw` loop under a hard Landlock
-policy and an in-process channel. It is not yet the production research agent:
-the literature-worker integration will expose only the skills required for
-planning, retrieval, evidence extraction, and MeTTa updates. No mock planner
-or fake OmegaClaw orchestration is substituted for the real agent.
+policy and an in-process channel. Production planning uses this real loop for
+the bounded plan stage. Literature retrieval, evidence extraction, and MeTTa
+updates remain explicit HelixMind worker stages; they do not claim OmegaClaw
+performed those stages. No mock planner or fabricated research is substituted
+for the real planning call or source retrieval.
+
+## Production planning channel registration
+
+The research worker's one-shot configuration selects the in-process
+`helixmind-planning` channel and `helixmind_planning` Python plugin. The pinned
+runtime registry at `.runtime/PeTTa/repos/OmegaClaw-Core/config/plugins.yaml`
+must list both `helixmind_proof` and `helixmind_planning`, each loading from
+`/opt/HelixMind/backend/omegaclaw`. The runtime is excluded from Git, so keep
+both entries when rebuilding it. If the planning channel is absent, OmegaClaw
+aborts during initialization before making any provider request.
+
+Research planning tries ASI Cloud first and Gemini second. Groq is omitted
+from the default order while it returns HTTP 403. If OmegaClaw cannot produce
+a validated plan, the worker records a planning-degraded event and uses a
+deterministic search plan; the plan metadata identifies that fallback and it
+contains no scientific findings.
+
+The planning subprocess is bounded to 60 seconds. The successful deployed
+planning path took about 8 seconds end to end; the longer limit allows provider
+latency while still bounding work on the shared VPS.

@@ -2,7 +2,7 @@ import httpx
 import json
 import pytest
 
-from app.inference import InferenceError, InferenceRouter, OpenAICompatibleProvider
+from app.inference import InferenceError, InferenceRouter, OpenAICompatibleProvider, router_from_environment
 
 
 def provider(handler, keys=("k1", "k2", "k3")):
@@ -77,3 +77,10 @@ def test_invalid_request_does_not_rotate_credentials() -> None:
         provider(handler).chat([{"role": "user", "content": "hello"}])
     assert error.value.category == "invalid_request"
     assert calls == 1
+
+
+def test_default_provider_order_tries_asi_then_gemini_without_groq(monkeypatch) -> None:
+    monkeypatch.delenv("OMEGACLAW_PROVIDER_ORDER", raising=False)
+    monkeypatch.delenv("OMEGACLAW_PROVIDER", raising=False)
+    router = router_from_environment()
+    assert router.order == ["asi", "gemini"]
