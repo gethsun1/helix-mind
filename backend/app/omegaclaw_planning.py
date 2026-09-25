@@ -79,7 +79,7 @@ def run_research_planning(*, title: str, research_question: str, domain: str) ->
             _stop_process_group(process)
 
     if timed_out:
-        raise OmegaClawPlanningError("OmegaClaw planning timed out.", "EXTERNAL_PROVIDER_ERROR")
+        raise OmegaClawPlanningError("OmegaClaw planning timed out.", "OMEGACLAW_TIMEOUT")
     if marker is None and (process is None or process.returncode not in (0, -signal.SIGTERM, 128 + signal.SIGTERM)):
         logger.error("OmegaClaw planning exited without a plan; output_tail=%s", output_tail[-3:])
         raise OmegaClawPlanningError("OmegaClaw planning failed to produce a research plan.", "EXTERNAL_PROVIDER_ERROR")

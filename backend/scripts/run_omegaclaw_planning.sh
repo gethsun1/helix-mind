@@ -7,6 +7,7 @@ swi_bin="${HELIXMIND_SWI_BIN:-$project_root/.runtime/swi-prolog-10.1.12/bin}"
 omega_venv="${HELIXMIND_OMEGACLAW_VENV:-$project_root/.runtime/omegaclaw-venv}"
 config_path="$project_root/backend/omegaclaw/planning.yaml"
 run_path="$project_root/backend/omegaclaw/run_planning.metta"
+planning_timeout="${HELIXMIND_OMEGACLAW_TIMEOUT_SECONDS:-60}"
 
 if [ ! -x "$swi_bin/swipl" ] || [ ! -f "$petta_root/run.sh" ] || [ ! -x "$omega_venv/bin/python" ]; then
   echo "HelixMind's private OmegaClaw runtime is unavailable." >&2
@@ -16,8 +17,8 @@ fi
 set -a
 . /etc/helixmind/helixmind.env
 set +a
-: "${GEMINI_API_KEY:?GEMINI_API_KEY must be configured}"
-: "${GROQ_API_KEY:?GROQ_API_KEY must be configured}"
+# The router determines which configured provider is usable. Do not require a
+# known-broken fallback credential before trying ASI or Gemini.
 
 request_payload=$(cat)
 request_dir=$(mktemp -d /tmp/helixmind-omegaclaw-planning.XXXXXX)
@@ -41,4 +42,4 @@ fi
 export PYTHONPATH="$project_root/backend:$omega_venv/lib/python3.12/site-packages:$omega_core:$omega_core/src:$omega_core/providers:$omega_core/profile${PYTHONPATH:+:$PYTHONPATH}"
 
 cd "$petta_root"
-PATH="$swi_bin:$PATH" timeout --signal=TERM 900 sh run.sh "$run_path" "config=$config_path" "memoryDirectory=$request_dir"
+PATH="$swi_bin:$PATH" timeout --signal=TERM "$planning_timeout" sh run.sh "$run_path" "config=$config_path" "memoryDirectory=$request_dir"

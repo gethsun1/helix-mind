@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     auth_secret: str = ""
     auth_sync_secret: str = ""
     admin_email: str = "gethsun09@gmail.com"
-    omegaclaw_timeout_seconds: int = 900
+    omegaclaw_timeout_seconds: int = 60
     artifact_root: str = "/opt/HelixMind/.artifacts"
 
     @property

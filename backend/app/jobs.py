@@ -13,6 +13,7 @@ from app.literature_pipeline import LiteraturePipelineError, run_literature_pipe
 from app.models import Investigation, InvestigationEvent, InvestigationRun, ResearchMemory
 from app.models import ResearchArtifact, ResearchSnapshot
 from app.omegaclaw_planning import OmegaClawPlanningError, run_research_planning
+from app.research_planning import deterministic_fallback_plan
 from app.research_reproducibility import create_run, digest_json, freeze_snapshot
 from app.scientific_reasoning import run_scientific_reasoning
 from app.research_artifacts import GENERATOR_VERSION, generate_artifact
@@ -81,11 +82,27 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
         _event(session, investigation.id, "research_started", "Investigation accepted by the HelixMind research worker.", {"worker": "helixmind-worker", "run_id": str(run.id)})
         _event(session, investigation.id, "planning_started", "OmegaClaw is planning the research strategy.", {"orchestrator": "OmegaClaw", "run_id": str(run.id)})
         session.commit()
-        plan = run_research_planning(
-            title=investigation.title,
-            research_question=investigation.question,
-            domain=investigation.domain,
-        )
+        planning_degraded = False
+        try:
+            plan = run_research_planning(
+                title=investigation.title,
+                research_question=investigation.question,
+                domain=investigation.domain,
+            )
+        except OmegaClawPlanningError as error:
+            planning_degraded = True
+            plan = deterministic_fallback_plan(
+                title=investigation.title,
+                research_question=investigation.question,
+                domain=investigation.domain,
+                failure_category=error.category,
+            )
+            _event(
+                session, investigation.id, "planning_degraded",
+                "OmegaClaw planning unavailable; deterministic research plan used.",
+                {"run_id": str(run.id), "category": error.category,
+                 "planner": "deterministic_fallback"},
+            )
         policy = {"memory_ids": [item["id"] for item in memory_inputs]}
         for memory in active_memories:
             if memory.memory_type == "HUMAN_CLINICAL_PRIORITY":
@@ -110,8 +127,9 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
             session,
             investigation.id,
             "planning_completed",
-            "OmegaClaw produced a structured research plan. Literature analysis has not started.",
-            {"orchestrator": plan.get("_metadata", {}).get("orchestrator"), "provider": plan.get("_metadata", {}).get("provider"), "model": plan.get("_metadata", {}).get("model"), "run_id": str(run.id)},
+            ("A deterministic research plan was used after OmegaClaw planning failed. Literature analysis has not started."
+             if planning_degraded else "OmegaClaw produced a structured research plan. Literature analysis has not started."),
+            {"orchestrator": plan.get("_metadata", {}).get("orchestrator"), "provider": plan.get("_metadata", {}).get("provider"), "model": plan.get("_metadata", {}).get("model"), "planning_status": "DEGRADED" if planning_degraded else "SUCCESS", "run_id": str(run.id)},
         )
         session.commit()
         investigation = session.get(Investigation, uuid.UUID(investigation_id))
@@ -140,9 +158,6 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
         session.commit()
         return {"status": "COMPLETED", "run_id": str(run.id), "snapshot": "persisted", "plan": "persisted", **summary, "knowledge": knowledge_summary, "reasoning": reasoning_summary}
     except LiteraturePipelineError as error:
-        _mark_failed(session, investigation_id, active_run_id, str(error), error.category)
-        return {"status": "FAILED"}
-    except OmegaClawPlanningError as error:
         _mark_failed(session, investigation_id, active_run_id, str(error), error.category)
         return {"status": "FAILED"}
     except Exception:

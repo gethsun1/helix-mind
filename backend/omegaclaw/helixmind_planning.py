@@ -29,7 +29,8 @@ papers, invent citations, state evidence as fact, or provide a treatment or
 diagnosis. Use exactly these array fields of short strings:
 research_objectives, research_questions, search_strategies, key_concepts,
 evidence_categories, reasoning_tasks. Keep the plan scoped to a future
-literature investigation. Do not include confidence scores or citations.
+literature investigation. Search only PubMed and Europe PMC. Do not include
+confidence scores or citations.
 """
 
 
@@ -62,11 +63,15 @@ class HelixMindPlanningProvider(providers.LLMProvider):
             response = self.router.chat(
                 [
                     {"role": "system", "content": _PLANNING_INSTRUCTION},
-                    {"role": "user", "content": prompt},
+                    # OmegaClaw's harness prompt contains tool instructions that
+                    # conflict with this JSON planning contract. The channel
+                    # request is the authoritative, bounded user input.
+                    {"role": "user", "content": os.environ.get("HELIXMIND_PLANNING_REQUEST", "")},
                 ],
                 workload="omegaclaw_planning",
                 max_tokens=max_tokens,
                 reasoning_effort=reasoning_mode,
+                json_mode=True,
             )
             plan = self._extract_plan(response.content)
             if plan is None:
@@ -75,9 +80,11 @@ class HelixMindPlanningProvider(providers.LLMProvider):
             _selected_provider = response.provider
             _selected_model = response.model
             logger.info("OmegaClaw planning accepted provider=%s model=%s fallback=%s", response.provider, response.model, response.fallback_occurred)
-            encoded = json.dumps(plan, ensure_ascii=True, separators=(",", ":"))
-            escaped = json.dumps(encoded, ensure_ascii=True)
-            return f"(send {escaped})"
+            # Deliver through OmegaClaw's selected communication channel. A
+            # textual `(send ...)` return is only parsed as a loop command and
+            # does not reliably invoke the Python channel callback.
+            channels.commChannelSend(json.dumps(plan, ensure_ascii=True, separators=(",", ":")))
+            return "()"
         except InferenceError as error:
             logger.error("OmegaClaw planning providers exhausted category=%s", error.category)
             return "()"
