@@ -56,6 +56,7 @@ class InvestigationEventRead(BaseModel):
 class InvestigationRead(BaseModel):
     id: UUID
     owner_id: UUID = Field(serialization_alias="ownerId")
+    research_context: str | None = Field(default=None, serialization_alias="researchContext")
     title: str
     research_question: str = Field(serialization_alias="researchQuestion")
     domain: str
@@ -396,6 +397,7 @@ class ResearchSnapshotRead(BaseModel):
     formula_version: str | None = Field(default=None, serialization_alias="formulaVersion")
     metta_digest: str | None = Field(default=None, serialization_alias="mettaDigest")
     manifest_digest: str = Field(serialization_alias="manifestDigest")
+    digest_valid: bool = Field(default=False, serialization_alias="digestValid")
     manifest: dict
     created_at: datetime = Field(serialization_alias="createdAt")
 

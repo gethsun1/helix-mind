@@ -83,13 +83,23 @@ def test_worker_persists_applied_memory_in_run_manifest_and_audit(monkeypatch):
 
     owner_id = _user_id()
     investigation_id = uuid.uuid4()
+    unrelated_investigation_id = uuid.uuid4()
+    other_owner_id = uuid.uuid4()
     with SessionLocal() as session:
+        session.add(User(id=other_owner_id, email=f"memory-owner-scope-{other_owner_id}@example.invalid", name="Other owner"))
         investigation = Investigation(id=investigation_id, owner_id=owner_id, title="Memory influence test", question="How does a saved decision alter later research?", status="QUEUED")
         session.add(investigation)
         session.flush()
         memory = ResearchMemory(owner_id=owner_id, investigation_id=investigation_id, memory_type="HUMAN_CLINICAL_PRIORITY", decision_text="Prioritize human clinical evidence.", audit_metadata={"decision_origin": "explicit_user_save"})
         session.add(memory)
         session.flush()
+        inactive_memory = ResearchMemory(owner_id=owner_id, investigation_id=investigation_id, memory_type="OFF_TARGET_CONSTRAINT", decision_text="Inactive decision must not be applied.", active=False)
+        session.add(inactive_memory)
+        session.add(Investigation(id=unrelated_investigation_id, owner_id=owner_id, title="Other memory scope", question="Does another project memory leak?", status="COMPLETED"))
+        unrelated_memory = ResearchMemory(owner_id=owner_id, investigation_id=unrelated_investigation_id, memory_type="OFF_TARGET_CONSTRAINT", decision_text="Only applies to another project.")
+        session.add(unrelated_memory)
+        wrong_owner_memory = ResearchMemory(owner_id=other_owner_id, investigation_id=investigation_id, memory_type="OFF_TARGET_CONSTRAINT", decision_text="Wrong owner memory must not leak.")
+        session.add(wrong_owner_memory)
         run = create_run(session, investigation)
         run_id = run.id
         memory_id = memory.id
@@ -106,6 +116,8 @@ def test_worker_persists_applied_memory_in_run_manifest_and_audit(monkeypatch):
             run = session.get(InvestigationRun, run_id)
             assert run is not None
             assert run.input_manifest["research_memories"][0]["id"] == str(memory_id)
+            assert len(run.input_manifest["research_memories"]) == 1
+            assert run.input_manifest["research_memories"][0]["decision_text"] == "Prioritize human clinical evidence."
             assert run.input_manifest["applied_memory_policy"]["prioritize_human_clinical"] is True
             event = session.scalar(select(InvestigationEvent).where(InvestigationEvent.investigation_id == investigation_id, InvestigationEvent.event_type == "research_memory_applied"))
             assert event is not None
@@ -115,4 +127,10 @@ def test_worker_persists_applied_memory_in_run_manifest_and_audit(monkeypatch):
             row = session.get(Investigation, investigation_id)
             if row:
                 session.delete(row)
+            unrelated = session.get(Investigation, unrelated_investigation_id)
+            if unrelated:
+                session.delete(unrelated)
+            other_owner = session.get(User, other_owner_id)
+            if other_owner:
+                session.delete(other_owner)
             session.commit()

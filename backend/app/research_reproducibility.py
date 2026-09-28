@@ -51,8 +51,10 @@ SAFE_METADATA_KEYS = {
     "engine",
     "event_id",
     "fallback_occurred",
+    "fallback_reason",
     "formula_version",
     "inference_rules",
+    "latency_ms",
     "model",
     "orchestrator",
     "provider",
@@ -61,6 +63,7 @@ SAFE_METADATA_KEYS = {
     "sources",
     "trace_count",
     "type",
+    "usage",
     "worker",
     "memory_id",
     "memory_ids",
@@ -96,7 +99,20 @@ def digest_json(value: Any) -> str:
 def _safe_metadata(value: dict[str, Any] | None) -> dict[str, Any]:
     if not value:
         return {}
-    return {key: _json_value(item) for key, item in value.items() if key in SAFE_METADATA_KEYS}
+    safe: dict[str, Any] = {}
+    for key, item in value.items():
+        if key not in SAFE_METADATA_KEYS:
+            continue
+        if key == "usage":
+            if isinstance(item, dict):
+                safe[key] = {
+                    name: count for name, count in item.items()
+                    if name in {"prompt_tokens", "completion_tokens", "total_tokens"}
+                    and isinstance(count, int) and not isinstance(count, bool)
+                }
+            continue
+        safe[key] = _json_value(item)
+    return safe
 
 
 def _record_digest(record: dict[str, Any]) -> str:

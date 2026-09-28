@@ -4,7 +4,7 @@
 
 <h1 align="center">HelixMind</h1>
 
-<p align="center"><strong>An evidence-led scientific intelligence workstation for traceable research investigations.</strong></p>
+<p align="center"><strong>An auditable institutional AI infrastructure layer for Research &amp; Innovation.</strong></p>
 
 <p align="center"><a href="./LICENSE">MIT License</a> · <a href="https://github.com/gethsun1/helix-mind/issues">Issues</a> · <a href="./CONTRIBUTING.md">Contributing</a></p>
 
@@ -12,122 +12,100 @@
 > information and transparent reasoning. It does not provide diagnoses,
 > treatment recommendations, or validated medical probabilities.
 
-## Project proposition
+## Product positioning
 
-HelixMind applies OmegaClaw/MeTTa reasoning to a practical scientific research
-workflow. A question becomes an owner-scoped investigation, an explicit
-research plan, a queued literature search, and a provenance-preserving record
-of source material.
+HelixMind is an **auditable institutional AI infrastructure layer for
+Research & Innovation**. Its first implemented vertical is **Research &
+Innovation Intelligence**: a persistent research project workflow with
+bounded AI planning, literature retrieval, source-linked evidence, deterministic
+evidence reasoning, human-controlled research memory, and reproducible outputs.
 
-The flagship demonstration domain is biotechnology, especially CRISPR. CRISPR
-connects genetics, molecular biology, and medicine; it produces rich evidence
-relationships that are understandable in a public demonstration. The domain
-is a proving ground for traceable scientific reasoning, not a claim that
-HelixMind is a CRISPR-only or clinical system.
+The existing `Investigation` record is the research project primitive. Its
+institutional context comes from the researcher's existing organization
+profile. This implementation does not provide multi-tenant institutional
+SaaS, organization management, shared institutional workspaces, a university
+ERP, or a general workflow platform.
 
-The non-negotiable principle is: **retrieved literature is the evidence source
-of truth**. LLMs may help plan or interpret work, but generated text is not
-automatically evidence. Confidence values are evidence-system assessments, not
-clinical probabilities.
+The flagship demonstration question is in biotechnology, particularly
+CRISPR-Cas9 and sickle cell disease. This is a bounded demonstration domain,
+not a claim that HelixMind is a clinical system. Retrieved literature remains
+the evidence source of truth. AI-generated plans are inspectable planning
+outputs, not evidence or scientific conclusions. Confidence values are
+evidence-system assessments, not clinical probabilities or scientific truth.
 
 ## Current status
 
-This index reflects the repository and isolated runtime inspected on 2026-09-25.
-“Verified” means supported by source inspection, tests, or a live check; it
-does not imply that every future research capability is complete.
+This status reflects the M1/M2 repository verification completed on
+2026-09-28. Results below are point-in-time checks; they do not guarantee
+future availability of external inference or literature providers.
 
 | Area | Current status |
 | --- | --- |
-| Next.js 14 / TypeScript workstation | Implemented; Vercel frontend responds at `https://helix-mind-green.vercel.app/` |
-| FastAPI API | Implemented; live health check responds through the public HelixMind endpoint |
-| PostgreSQL / Alembic | Implemented with HelixMind migrations and scientific schema |
-| Redis / RQ | Implemented as isolated `helixmind-redis.service` and `helixmind-research` queue |
-| Google OAuth / NextAuth 4 | Implemented with persistent JWT session and backend identity sync |
-| User profiles and roles | Implemented; PostgreSQL is authoritative for researcher identity and USER/ADMIN role |
-| Investigation ownership | Implemented; API queries enforce owner scope, with explicit admin diagnostics access |
-| PubMed and Europe PMC | Implemented with real retrieval, normalization, PMID/DOI/PMCID deduplication, ranking, and provenance |
-| OmegaClaw planning | Verified in a live investigation with ASI Cloud `asi1-mini`; 60-second process bound and audited deterministic fallback |
-| OmegaClaw / PeTTa / MeTTa NAL proof | Verified as a constrained local proof, separate from the full evidence-reasoning product |
-| Entity extraction, provenance-preserving claims/relationships, bounded knowledge graph | Implemented for retrieved abstracts; deterministic Phase 3D boundary |
-| Scientific evidence reasoning, hypotheses, contradictions, gaps, traces | Implemented additively in Phase 3E; deterministic source-linked aggregation |
-| Phase 4A reproducibility foundation | Implemented; run lineage, immutable hashed snapshots, reruns, comparisons, and owner-scoped APIs |
-| Phase 4B research artifacts | Implemented; deterministic Markdown, scientific report, and private Obsidian vault exports from immutable snapshots |
-| Phase 4C scientific workstation UX | Implemented; research quest milestones, evidence explorer, hypothesis evidence balance, health indicators, and artifact controls |
-| Persistent Research Memory / OMEGA AI Agents Track 03 | Implemented; explicit owner-scoped decisions persist across sessions, change later research plans and retrieval, and are recorded in run manifests and audit events |
-| ERN-AI ingestion | Reserved; no speculative dependency added |
-| Public API route and TLS | Live-check verified for the current HelixMind host; deployment configuration remains HelixMind-specific |
+| Research & Innovation Intelligence | Implemented as the first Research & Innovation infrastructure vertical |
+| Identity and access | Google authentication, persistent researcher identity, USER/ADMIN roles, protected APIs, owner-scoped investigations |
+| Research projects | Investigation as project, research question, profile research context, run IDs, and parent-run lineage |
+| Bounded OmegaClaw planning | Structured plan, provider/model attribution, latency, fallback status/reason, safe usage, deterministic fallback when needed |
+| Literature and evidence | PubMed and Europe PMC retrieval, normalized records, identifier handling, deduplication, persisted provenance, source-linked evidence |
+| Knowledge and reasoning | Claims, entities, relationships, propositions, hypotheses, contradictions, knowledge gaps, deterministic evidence aggregation and traces |
+| Persistent research memory | Explicit Human Research Decisions, owner/investigation scope, source provenance, active/inactive state, auditable subsequent-run application |
+| Reproducibility and artifacts | Parent/child run lineage, immutable SHA-256 snapshot manifests, Markdown/scientific report/Obsidian exports, authenticated downloads |
+| MeTTa / PeTTa boundary | PostgreSQL is canonical; MeTTa is a structured projection and PeTTa validates it |
+| M1/M2 verification | 57 backend tests passed; frontend production build passed; real two-run memory-influenced workflow and snapshot/artifact digests verified |
 
-## Production recovery verification (2026-09-25)
+## M1/M2 verification (2026-09-28)
 
-A live owner-scoped API investigation verified the worker path from structured
-planning through literature retrieval, evidence extraction, graph construction,
-deterministic reasoning, snapshot creation, and artifact download. The initial
-production failure was an OmegaClaw runtime registry omission: the one-shot
-planning configuration selected `helixmind-planning`, but the private pinned
-runtime had not registered that channel plugin. OmegaClaw stopped during
-channel initialization before contacting an inference provider.
+The backend suite passed with **57 tests**, `npm run build` passed, and
+`git diff --check` passed. A real two-run golden workflow used OmegaClaw
+planning through ASI Cloud `asi1-mini` without provider fallback. PubMed and
+Europe PMC both succeeded on both runs. The researcher explicitly saved a
+Human Research Decision; run 2 recorded the active memory in its input
+manifest and audit event, and both second-run queries reflected its clinical
+priority. Run lineage and owner isolation were checked. The run 2 snapshot
+manifest digest was verified by the API, and the downloaded artifact SHA-256
+matched both artifact metadata and the response digest header.
 
-The runtime now registers the planning plugin alongside the proof plugin. The
-adapter sends the bounded research request as JSON and returns a validated
-plan through OmegaClaw's communication channel. ASI Cloud (`asi1-mini`) is the
-primary provider and Gemini is the configured fallback. Groq is omitted from
-the default route while its configured endpoint returns HTTP 403. Planning
-has a 60-second hard bound. If OmegaClaw fails or times out, the worker records
-the failure and uses an explicitly attributed deterministic search plan; it
-does not generate scientific conclusions. The UI discloses this degraded
-state.
-
-The verification investigation retrieved 10 records each from PubMed and
-Europe PMC and persisted 16 deduplicated papers in its first run. Its first
-reasoning pass persisted 153 source-linked evidence records, 33 propositions,
-33 supported hypotheses, one knowledge gap, and no detected contradictions.
-An immutable snapshot and Markdown, structured scientific report, and Obsidian
-vault artifacts were generated; all three downloads succeeded through the
-owner-scoped API with digest headers. Persistent human-clinical-priority memory
-was restored in a separate API session, changed the subsequent source query,
-and was audited. After deactivation, a later run omitted the clinical filter.
-
-The backend suite passed with 49 tests. The local frontend production build
-and Vercel production build passed, and the updated frontend was promoted to
-the production alias. The API, worker, PostgreSQL, Redis, and public HTTPS API
-health checks passed. The live research smoke test used a signed owner-scoped
-API session; an interactive Google OAuth sign-in was not repeated. The
-systemd `caddy.service` unit remains failed because its admin port is already
-occupied, although the HelixMind public HTTPS route responded through Caddy.
-The separate full OmegaClaw NAL agent proof also remains unverified; it is
-distinct from the now-verified bounded planning integration. See the
-[runtime notes](./docs/OMEGACLAW_RUNTIME.md) for the runtime boundary and
-limitations.
+The M2 end-to-end workflow ran against the isolated `helixmind_test` database;
+the worker and artifact-generation functions were invoked synchronously so
+the test did not use the application Redis queue. M1 separately verified the
+queue-backed workflow. No production migration or deployment was part of M2.
+These checks describe the verified run, not a guarantee about future external
+provider availability. The fixed NAL/PLN proof is a separate technical proof;
+it is not the production evidence-reasoning pipeline. See the
+[runtime notes](./docs/OMEGACLAW_RUNTIME.md) for further boundaries.
 
 ## Architecture
 
 ```text
-PUBLIC CLIENT
-    │ HTTPS
-    ▼
-Next.js workstation on Vercel
-    │ NextAuth session + same-origin backend proxy
-    ▼
-Google OAuth / researcher identity sync
-    │ bearer session token
-    ▼
-HelixMind FastAPI API
-    │ owner-scoped investigation and literature routes
-    ▼
-PostgreSQL ◄───────────────┐
-    │ users, investigations, research memories, papers, evidence, claims, propositions, hypotheses,
-    │ contradictions, knowledge gaps, reasoning traces, graph provenance
-    │                        │
-    └── queued job ──► Redis / RQ ──► HelixMind worker
-                                      │
-                                      ├─ OmegaClaw research planning
-                                      ├─ PubMed / NCBI retrieval
-                                      ├─ Europe PMC retrieval
-                                      └─ snapshot-based artifact generation
-                                           └─ private Markdown / JSON / ZIP storage
+AUTHENTICATED RESEARCHER
+        ↓
+Next.js Research Workspace
+        ↓ authenticated same-origin proxy
+FastAPI API
+        ↓
+PostgreSQL — canonical identity and research state
 
-Separate constrained proof runtime:
-OmegaClaw Core → PeTTa → MeTTa → NAL/PLN proof
+RESEARCH EXECUTION (HelixMind research worker via Redis / RQ)
+Research Project / Investigation
+        ↓
+Bounded OmegaClaw-powered Research Planning Agent
+        ├─ structured plan + provider/model, latency, fallback and safe usage metadata
+        └─ ASI / configured inference provider
+        ↓
+PubMed + Europe PMC → normalized, persisted literature and provenance
+        ↓
+Source-linked evidence → knowledge, propositions, hypotheses, gaps, contradictions
+        ↓
+Deterministic application-level evidence aggregation and reasoning traces
+        ↓
+Human Research Decision → persistent, scoped ResearchMemory
+        ↓
+Subsequent research run → immutable SHA-256 snapshot → reproducible artifacts
+
+KNOWLEDGE REPRESENTATION BOUNDARY
+PostgreSQL canonical state → structured MeTTa knowledge projection → PeTTa validation
+
+SEPARATE FIXED TECHNICAL PROOF
+NAL / PLN deduction over a fixed proof input
 ```
 
 The API, worker, Redis instance, database identity, service user, logs, and
@@ -150,40 +128,43 @@ server-side role dependency. Client-supplied roles, ownership, or credentials
 are not trusted. Secrets and provider keys remain outside Git and are never
 documented here.
 
+Provider credentials are used only by backend services and are never sent to
+the browser. Persisted provider attribution contains safe metadata such as
+provider, model, latency, fallback state/reason, and permitted usage fields;
+raw credentials are excluded. Research memories are selected by both owner and
+investigation, and their application is recorded in run inputs and audit
+events.
+
 ### Research lifecycle
 
 ```text
-CURRENT PRODUCT PATH
-Question → investigation record → RQ queue → OmegaClaw plan
-         → PubMed / Europe PMC retrieval → normalization → deduplication
-         → persisted paper-to-investigation provenance and event trace
-         → active research memory applied to planning, retrieval, and ranking
-
-Knowledge extraction → exact abstract evidence → claims/entities
-                    → explicit relationships → bounded graph → MeTTa validation
-
-VERIFIED SEPARATE PROOF
-Source-grounded facts → MeTTa representation → NAL/PLN deduction
-
-CURRENT KNOWLEDGE + REASONING LAYER
-Abstract evidence → exact claims → entities → explicit relationships → graph
-                    → propositions → evidence balance → hypotheses / gaps / trace
-
-PHASE 3E REASONING LAYER
-Evidence polarity → contradiction pairs → deterministic confidence assessment
-→ qualified hypotheses → knowledge gaps / research opportunities → trace
-
-PHASE 4B/4C WORKSTATION LAYER
-Completed run → immutable snapshot → deterministic research artifact projection
-→ Research Quest milestones / health → evidence explorer / Hypothesis Lab
+Research question + research context
+        ↓
+Investigation / research project
+        ↓ queued through Redis / RQ
+Bounded OmegaClaw planning → PubMed + Europe PMC retrieval
+        ↓
+Persisted papers and provenance → exact source-linked evidence
+        ↓
+Knowledge graph and structured propositions
+        ↓
+Deterministic evidence assessment → hypotheses / contradictions / gaps / traces
+        ↓
+Human Research Decision → explicit persistent ResearchMemory
+        ↓
+Later run applies eligible memory → immutable snapshot → artifact
 ```
 
 The current worker retrieves and persists source records, extracts exact
-abstract claims and evidence, derives explicit propositions, and runs the
-deterministic Phase 3E evidence aggregation stage. It does not generate
-autonomous scientific conclusions or clinical recommendations.
+abstract claims and evidence, derives explicit propositions, and runs
+deterministic application-level evidence aggregation. MeTTa receives a
+structured projection of persisted knowledge, and PeTTa validates that
+projection. This does not make MeTTa the canonical database or imply that the
+fixed NAL/PLN proof runs the production scientific reasoning pipeline. The
+system does not generate autonomous scientific conclusions or clinical
+recommendations.
 
-### Persistent Research Memory — OMEGA AI Agents Track 03
+### Persistent Research Memory — Human Research Decisions
 
 Researchers can explicitly save a structured decision to an investigation.
 Memory rows are PostgreSQL-backed and scoped to both the investigation and its
@@ -212,9 +193,11 @@ link them to the originating run/snapshot, and show where a later run applied
 them. See the focused implementation and persistence tests in
 [`backend/tests/test_research_memory.py`](./backend/tests/test_research_memory.py).
 
-The frontend builds locally and uses Vercel Git integration: pushed branches
+The frontend is deployed through Vercel Git integration: pushed branches can
 receive Preview deployments, and the configured production branch updates the
-production alias.
+production alias. The API and worker use HelixMind-specific VPS services; see
+[deployment and infrastructure notes](./docs/INFRASTRUCTURE.md). M2 verification
+did not deploy or change service configuration.
 
 ### Phase 3E scientific reasoning
 
@@ -282,7 +265,7 @@ See [the literature pipeline](./docs/LITERATURE_PIPELINE.md), [knowledge layer](
 
 ## OmegaClaw, PeTTa, and MeTTa
 
-The repository contains distinct OmegaClaw capabilities:
+The repository contains two distinct, bounded OmegaClaw capabilities:
 
 1. The investigation worker invokes OmegaClaw-backed research planning and
    persists the resulting structured plan. Provider/runtime failures are
@@ -290,14 +273,12 @@ The repository contains distinct OmegaClaw capabilities:
    in the UI and does not assert scientific findings.
 2. A constrained local proof runs OmegaClaw Core's plugin/channel mechanism,
    accepts one fixed MeTTa operation, and demonstrates an NAL deduction. It is
-   not yet a general autonomous research agent and is not equivalent to the
-   future evidence-reasoning layer.
+   a separate technical proof, not the production evidence-reasoning layer.
 
-The live bounded planning integration has completed a real ASI-backed
-research investigation. The separate full OmegaClaw bounded NAL agent proof
-has not completed within its 60-second timeout; HelixMind does not claim that
-proof succeeded. An interrupted full proof can destabilize its Janus/SWI-Prolog
-child. Provider credentials remain environment-only. See
+The bounded planning integration completed the verified ASI-backed research
+workflow. The fixed NAL/PLN proof also passed as a separate technical check;
+neither result means OmegaClaw/MeTTa performs all scientific inference.
+Provider credentials remain environment-only. See
 [the runtime notes](./docs/OMEGACLAW_RUNTIME.md).
 
 ## ERN-AI boundary proposal
@@ -343,27 +324,50 @@ session. Important routes include:
 | `GET /literature/search` | Search the authenticated user's corpus |
 | `GET /admin/diagnostics` | Redacted diagnostics for administrators |
 
-## Development
+## Development and deployment
 
 Prerequisites are Node.js 20+, Python 3.12+, PostgreSQL, and Redis. Use
-dedicated non-production database and queue resources.
+dedicated non-production database and queue resources. Configure values in
+`backend/.env` from the documented keys in `backend/.env.example`; the example
+contains placeholders and must not be used as a production configuration.
+Frontend and backend environment settings are documented in
+`deploy/helixmind-frontend.env.example` and `deploy/helixmind.env.example`.
+
+Install frontend dependencies and start Next.js from the repository root:
 
 ```bash
 npm install
 npm run dev
+```
 
+In a separate terminal, create the Python environment, configure the backend,
+apply migrations to the configured development database, and start the API:
+
+```bash
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 cp backend/.env.example backend/.env
 cd backend
 PYTHONPATH=. ../.venv/bin/alembic -c alembic.ini upgrade head
 PYTHONPATH=. ../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8401
+```
+
+Start the worker in another `backend/` terminal using the configured Redis
+URL and queue (the example local service uses port 6381):
+
+```bash
 PYTHONPATH=. ../.venv/bin/rq worker --url redis://127.0.0.1:6381/0 helixmind-research
 ```
 
-Run backend tests from `backend/` with `PYTHONPATH=.`. The full contributor
-workflow, migration rules, scientific data principles, and PR expectations
-are in [CONTRIBUTING.md](./CONTRIBUTING.md).
+Run backend tests from `backend/` with `PYTHONPATH=.` (for example,
+`PYTHONPATH=. ../.venv/bin/python -m pytest -q`). The hosted frontend uses
+Vercel; HelixMind's API, PostgreSQL, Redis/RQ worker and reverse proxy use
+HelixMind-specific VPS configuration. The deployment files and
+[infrastructure boundary](./docs/INFRASTRUCTURE.md) describe those services;
+the VPS also hosts unrelated projects, which are outside this repository and
+must remain isolated. The full contributor workflow, migration rules,
+scientific data principles, and PR expectations are in
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Repository guide
 
@@ -446,7 +450,7 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
 - Snapshot/run controls, artifact generation and download status, and clear
   loading, empty, failed, partial, and responsive mobile states
 
-### Completed: Persistent Research Memory — OMEGA AI Agents Track 03
+### Completed: Persistent Research Memory — Human Research Decisions
 
 - Explicit, typed, owner-scoped decisions persisted in PostgreSQL with source
   run/snapshot links, active/deactivated lifecycle, and audit metadata
@@ -455,32 +459,68 @@ docs/                   literature, knowledge, inference, runtime, infrastructur
   concepts
 - Memory IDs and applied policy are captured in run input manifests and linked
   to persisted planning, search, evidence, and reasoning records
-- Workstation controls to save, restore, review, and deactivate decisions;
-  complete backend suite passes (45 tests)
+- Workstation controls to save, review, and deactivate decisions; verified as
+  part of the 57-test M1/M2 baseline
 
-### Roadmap — pending Phase 4 work
+## Advanced Track 04 — Build the AI Infrastructure Layer
 
-- **Phase 4D — Knowledge Graph 2.0:** typed and filterable graph queries,
-  provenance-aware expansion and drill-down, snapshot-aware views, and an
-  accessible table/list fallback
-- **Phase 4E — Literature Intelligence 2.0:** Crossref and OpenAlex adapters,
-  conservative identifier resolution, citation and author metadata, date
-  filtering, and stronger deduplication
-- **Phase 4F — Semantic extraction pilot:** versioned shadow-mode extraction,
-  entity normalization, candidate claim/proposition review, semantic
-  similarity, and contradiction candidates while retaining the deterministic
-  baseline
-- **Phase 4G — Domain adapters:** register CRISPR as the first adapter, then
-  validate medicine, climate science, and materials-science fixtures
-- **Phase 4H — Inference observability:** provider/model, latency, usage,
+The current implementation follows the **Research & Innovation
+Infrastructure** direction. Its project primitive is an Investigation;
+bounded OmegaClaw planning structures literature searches; retrieved sources
+become persisted literature and source-linked evidence; deterministic
+application-level reasoning produces inspectable hypotheses, gaps, and traces;
+researchers save explicit Human Research Decisions as persistent memory; and
+run lineage, immutable snapshots, and authenticated artifacts make the work
+auditable and reproducible.
+
+Option A remains the architectural umbrella. Option B, Research & Innovation
+Intelligence, is the implemented vertical. Option C, Institutional Asset
+Intelligence / RWA and digital asset infrastructure, is future scope and is
+not implemented.
+
+## Roadmap
+
+### Completed through M2
+
+- Google authentication, persistent researcher identity, USER/ADMIN roles,
+  protected APIs, and owner-scoped research projects
+- Investigation research context, bounded OmegaClaw planning, safe provider
+  attribution, and deterministic fallback handling
+- PubMed and Europe PMC retrieval, normalization, identifier handling,
+  deduplication, and source provenance
+- Source-linked evidence, claims, propositions, hypotheses, contradictions,
+  knowledge gaps, deterministic evidence aggregation, and reasoning traces
+- PostgreSQL canonical state with structured MeTTa projection and PeTTa
+  validation; separate fixed NAL/PLN technical proof
+- Human-controlled, owner/investigation-scoped ResearchMemory with save and
+  source provenance, active/inactive state, audit records, and application on
+  subsequent runs
+- Parent/child run lineage, immutable SHA-256 snapshot manifests, deterministic
+  Markdown and structured scientific reports, Obsidian-compatible exports,
+  authenticated artifact registry and downloads
+- M1 baseline recovery and M2 workflow hardening, verified 2026-09-28 (see
+  [M1/M2 verification](#m1m2-verification-2026-09-28))
+
+### Next milestones — future work, not implemented
+
+- **M3 — Knowledge Graph 2.0:** richer typed and filterable graph queries,
+  provenance-aware expansion, snapshot-aware exploration, and accessible
+  alternatives
+- **M4 — Literature Intelligence 2.0:** additional source adapters,
+  conservative identifier resolution, citation metadata, and stronger
+  deduplication
+- **M5 — Semantic Extraction Pilot:** versioned shadow-mode extraction,
+  candidate review, semantic similarity, and contradiction candidates while
+  retaining the deterministic baseline
+- **M6 — Domain Adapters:** configurable domain support and validated domain
+  fixtures, starting with the current biotechnology demonstration
+- **M7 — Inference Observability:** expanded provider/model, latency, usage,
   retry, fallback, failure, health, and cost metadata with secret redaction
-- **Reserved ERN-AI track:** evaluate as an optional upstream attention and
-  prioritization adapter; it is not a Phase 4 core dependency or source of
-  scientific truth
 
-Public publishing, social/community features, leaderboards, and public
-research sharing are not part of the implemented Phase 4 scope. Artifact
-downloads remain private and owner-scoped.
+ERN-AI remains a proposal for a possible optional prioritization adapter, not
+a current dependency or source of scientific truth. Public publishing,
+leaderboards, and public research sharing are outside the implemented scope;
+artifact downloads remain private and owner-scoped.
 
 ## How to contribute
 

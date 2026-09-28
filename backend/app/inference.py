@@ -36,6 +36,7 @@ class InferenceResult:
     credential_slot: str | None = None
     usage: dict[str, Any] = field(default_factory=dict)
     fallback_occurred: bool = False
+    fallback_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -73,8 +74,10 @@ def _error_category(status_code: int | None, error: Exception | None = None) -> 
         return "timeout"
     if isinstance(error, httpx.NetworkError):
         return "connection_failure"
-    if status_code in (401, 403):
+    if status_code == 401:
         return "authentication_failure"
+    if status_code == 403:
+        return "permission_failure"
     if status_code == 404:
         return "model_unavailable"
     if status_code == 429:
@@ -157,6 +160,7 @@ class OpenAICompatibleProvider:
         if not self.api_keys:
             raise InferenceError("Provider credentials are not configured.", category="not_configured", provider=self.name, model=self.chat_model)
         failures: list[str] = []
+        last_status_code: int | None = None
         for slot_index, (slot, key) in enumerate(self.api_keys):
             attempts = 0
             while attempts <= self.retries:
@@ -173,6 +177,7 @@ class OpenAICompatibleProvider:
                 category = _error_category(response.status_code)
                 if response.is_success:
                     return response, slot
+                last_status_code = response.status_code
                 failures.append(f"{slot}:{category}:{response.status_code}")
                 rotate = allow_credential_rotation and category in {"authentication_failure", "rate_limit"}
                 transient = category in {"timeout", "connection_failure", "provider_server_error"}
@@ -187,8 +192,9 @@ class OpenAICompatibleProvider:
                     raise InferenceError(f"{self.name} request failed: {safe_detail}", category=category, provider=self.name, model=self.chat_model, status_code=response.status_code)
                 break
         logger.warning("inference provider=%s exhausted credential slots failures=%s", self.name, ",".join(failures))
-        category = "rate_limit" if any(":rate_limit" in item for item in failures) else "authentication_failure" if any(":authentication_failure" in item for item in failures) else "provider_failure"
-        raise InferenceError(f"{self.name} credentials/providers exhausted.", category=category, provider=self.name, model=self.chat_model)
+        category = next((item.split(":", 2)[1] for item in failures if ":permission_failure" in item), None)
+        category = category or ("rate_limit" if any(":rate_limit" in item for item in failures) else "authentication_failure" if any(":authentication_failure" in item for item in failures) else "provider_failure")
+        raise InferenceError(f"{self.name} credentials/providers exhausted.", category=category, provider=self.name, model=self.chat_model, status_code=last_status_code)
 
 
 class InferenceRouter:
@@ -201,12 +207,25 @@ class InferenceRouter:
     def chat(self, messages: list[dict[str, str]], *, workload: str = "general", model: str | None = None,
              max_tokens: int = 1200, reasoning_effort: str | None = None, json_mode: bool = False) -> InferenceResult:
         failures: list[str] = []
+        first_failure_reason: str | None = None
+        fallback_categories = {
+            "authentication_failure", "permission_failure", "rate_limit", "model_unavailable",
+            "timeout", "connection_failure", "provider_server_error", "provider_failure", "empty_response",
+        }
         for index, name in enumerate(self.order):
             provider = self.providers[name]
             try:
                 result = provider.chat(messages, model=model, max_tokens=max_tokens, reasoning_effort=reasoning_effort, json_mode=json_mode)
-                return InferenceResult(result.provider, result.model, result.content, result.latency_ms, result.request_id, result.credential_slot, result.usage, fallback_occurred=index > 0)
+                return InferenceResult(
+                    result.provider, result.model, result.content, result.latency_ms, result.request_id,
+                    result.credential_slot, result.usage, fallback_occurred=index > 0,
+                    fallback_reason=first_failure_reason if index > 0 else None,
+                )
             except InferenceError as error:
+                if error.category not in fallback_categories:
+                    raise
+                if first_failure_reason is None:
+                    first_failure_reason = error.category
                 failures.append(f"{name}:{error.category}")
                 logger.warning("inference fallback workload=%s provider=%s category=%s", workload, name, error.category)
         raise InferenceError(f"All configured inference providers failed: {','.join(failures)}", category="all_providers_failed", provider="router", model=model or "configured")
