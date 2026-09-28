@@ -96,6 +96,32 @@ def digest_json(value: Any) -> str:
     return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def scoped_snapshot_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
+    """Return an investigation-scoped view of legacy/global entity metadata.
+
+    Entity rows are globally deduplicated, while older snapshots copied their
+    aggregated aliases and source paper IDs. Preserve the immutable stored
+    manifest, but redact fields that lack per-investigation provenance in API
+    projections.
+    """
+    result = dict(manifest)
+    papers = {str(row.get("id")): row for row in manifest.get("papers", [])}
+    entities = []
+    for original in manifest.get("entities", []):
+        record = dict(original)
+        metadata = original.get("metadata") or {}
+        source_papers = sorted({str(value) for value in metadata.get("source_papers", []) if str(value) in papers})
+        source_providers = sorted({str(papers[paper_id].get("source")) for paper_id in source_papers if papers[paper_id].get("source")})
+        record.update({"aliases": [], "description": None,
+            "metadata": {"source_papers": source_papers, "source_providers": source_providers}})
+        record.pop("record_digest", None)
+        record["record_digest"] = _record_digest(record)
+        entities.append(record)
+    if "entities" in manifest:
+        result["entities"] = entities
+    return result
+
+
 def _safe_metadata(value: dict[str, Any] | None) -> dict[str, Any]:
     if not value:
         return {}
@@ -251,16 +277,31 @@ def _entity_records(session: Session, investigation_id: object) -> list[dict[str
         .where(Claim.investigation_id == investigation_id)
         .distinct()
     ).all()
+    scoped_sources: dict[object, tuple[set[str], set[str]]] = {}
+    source_rows = session.execute(
+        select(ClaimEntity.entity_id, Paper.id, Paper.source)
+        .join(Claim, Claim.id == ClaimEntity.claim_id)
+        .join(Paper, Paper.id == Claim.paper_id)
+        .where(Claim.investigation_id == investigation_id)
+        .distinct()
+    ).all()
+    for entity_id, paper_id, source in source_rows:
+        paper_ids, providers = scoped_sources.setdefault(entity_id, (set(), set()))
+        paper_ids.add(str(paper_id))
+        providers.add(source)
     records = []
     for item in rows:
+        paper_ids, providers = scoped_sources.get(item.id, (set(), set()))
         record = {
             "id": item.id,
             "entity_type": item.entity_type,
             "canonical_name": item.canonical_name,
             "normalized_name": item.normalized_name,
-            "aliases": item.aliases or [],
+            # Alias provenance is not stored per investigation, and Entity is
+            # globally deduplicated. Avoid serializing shared aliases.
+            "aliases": [],
             "description": item.description,
-            "metadata": item.entity_metadata or {},
+            "metadata": {"source_papers": sorted(paper_ids), "source_providers": sorted(providers)},
         }
         record["record_digest"] = _record_digest(record)
         records.append(_json_value(record))
@@ -465,9 +506,11 @@ def compare_snapshots(left: ResearchSnapshot, right: ResearchSnapshot) -> dict[s
         "provider_metadata_changed": left.manifest.get("provider_metadata", []) != right.manifest.get("provider_metadata", []),
         "formula_version_changed": left.manifest.get("formula_version") != right.manifest.get("formula_version"),
     }
+    left_manifest = scoped_snapshot_manifest(left.manifest)
+    right_manifest = scoped_snapshot_manifest(right.manifest)
     for section in sections:
-        left_records = {str(item["id"]): item for item in left.manifest.get(section, [])}
-        right_records = {str(item["id"]): item for item in right.manifest.get(section, [])}
+        left_records = {str(item["id"]): item for item in left_manifest.get(section, [])}
+        right_records = {str(item["id"]): item for item in right_manifest.get(section, [])}
         added = sorted(set(right_records) - set(left_records))
         removed = sorted(set(left_records) - set(right_records))
         changed = []

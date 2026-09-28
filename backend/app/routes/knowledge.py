@@ -6,8 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
-from app.knowledge import investigation_graph
-from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Investigation, Relationship, RelationshipClaim, User
+from app.knowledge import entity_detail, graph_snapshot_diff, investigation_graph
+from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Investigation, Relationship, RelationshipClaim, ResearchSnapshot, User
 from app.schemas import KnowledgeClaimRead, KnowledgeEntityRead, KnowledgeEvidenceRead, KnowledgeGraphRead, KnowledgeRelationshipRead, KnowledgeSummaryRead
 from app.security import get_current_user
 
@@ -60,9 +60,34 @@ def knowledge_entities(investigation_id: UUID, limit: int = Query(default=200, g
     try:
         _scope(session, investigation_id, user)
         rows = session.scalars(select(Entity).join(ClaimEntity, ClaimEntity.entity_id == Entity.id).join(Claim, Claim.id == ClaimEntity.claim_id).where(Claim.investigation_id == investigation_id).distinct().limit(limit)).all()
-        return [KnowledgeEntityRead.model_validate(item, from_attributes=True) for item in rows]
+        # Entity aliases are aggregated on a shared canonical row, without
+        # alias-level investigation provenance. Do not expose them cross-scope.
+        return [KnowledgeEntityRead(id=item.id, canonical_name=item.canonical_name,
+            normalized_name=item.normalized_name, entity_type=item.entity_type,
+            aliases=[], description=item.description) for item in rows]
     finally:
         session.close()
+
+
+@router.get("/{investigation_id}/knowledge/entities/{entity_id}")
+def knowledge_entity_detail(investigation_id: UUID, entity_id: UUID, user: User = Depends(get_current_user)) -> dict:
+    with SessionLocal() as session:
+        _scope(session, investigation_id, user)
+        result = entity_detail(session, investigation_id, entity_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail="Entity not found.")
+        return result
+
+
+@router.get("/{investigation_id}/knowledge/diff")
+def knowledge_graph_diff(investigation_id: UUID, left_snapshot_id: UUID = Query(alias="leftSnapshotId"), right_snapshot_id: UUID = Query(alias="rightSnapshotId"), user: User = Depends(get_current_user)) -> dict:
+    with SessionLocal() as session:
+        _scope(session, investigation_id, user)
+        left = session.scalar(select(ResearchSnapshot).where(ResearchSnapshot.id == left_snapshot_id, ResearchSnapshot.investigation_id == investigation_id))
+        right = session.scalar(select(ResearchSnapshot).where(ResearchSnapshot.id == right_snapshot_id, ResearchSnapshot.investigation_id == investigation_id))
+        if left is None or right is None:
+            raise HTTPException(status_code=404, detail="Snapshot not found.")
+        return graph_snapshot_diff(left, right)
 
 
 @router.get("/{investigation_id}/knowledge/claims", response_model=list[KnowledgeClaimRead])

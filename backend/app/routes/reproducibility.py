@@ -12,7 +12,7 @@ from app.config import get_settings
 from app.jobs import generate_research_artifact, start_investigation
 from app.models import Investigation, InvestigationEvent, InvestigationRun, ResearchArtifact, ResearchSnapshot, User
 from app.queue import get_research_queue
-from app.research_reproducibility import compare_snapshots, create_run, digest_json, freeze_snapshot, latest_completed_run
+from app.research_reproducibility import compare_snapshots, create_run, digest_json, freeze_snapshot, latest_completed_run, scoped_snapshot_manifest
 from app.research_artifacts import GENERATOR_VERSION, normalize_artifact_type
 from app.schemas import InvestigationRunRead, InvestigationSnapshotCreate, ResearchArtifactCreate, ResearchArtifactRead, ResearchSnapshotRead
 from app.security import get_current_user
@@ -54,7 +54,11 @@ def _run_read(session, run: InvestigationRun) -> InvestigationRunRead:
 
 
 def _snapshot_read(snapshot: ResearchSnapshot) -> ResearchSnapshotRead:
+    response_manifest = scoped_snapshot_manifest(snapshot.manifest)
     result = ResearchSnapshotRead.model_validate(snapshot, from_attributes=True)
+    result.manifest = response_manifest
+    result.manifest_response_digest = digest_json(response_manifest)
+    result.manifest_redacted = response_manifest != snapshot.manifest
     result.digest_valid = digest_json(snapshot.manifest) == snapshot.manifest_digest
     return result
 
