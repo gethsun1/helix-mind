@@ -54,7 +54,9 @@ def _run_read(session, run: InvestigationRun) -> InvestigationRunRead:
 
 
 def _snapshot_read(snapshot: ResearchSnapshot) -> ResearchSnapshotRead:
-    return ResearchSnapshotRead.model_validate(snapshot, from_attributes=True)
+    result = ResearchSnapshotRead.model_validate(snapshot, from_attributes=True)
+    result.digest_valid = digest_json(snapshot.manifest) == snapshot.manifest_digest
+    return result
 
 
 def _artifact_read(artifact: ResearchArtifact, investigation_id: UUID | None = None) -> ResearchArtifactRead:

@@ -129,7 +129,16 @@ def start_investigation(investigation_id: str, run_id: str | None = None) -> dic
             "planning_completed",
             ("A deterministic research plan was used after OmegaClaw planning failed. Literature analysis has not started."
              if planning_degraded else "OmegaClaw produced a structured research plan. Literature analysis has not started."),
-            {"orchestrator": plan.get("_metadata", {}).get("orchestrator"), "provider": plan.get("_metadata", {}).get("provider"), "model": plan.get("_metadata", {}).get("model"), "planning_status": "DEGRADED" if planning_degraded else "SUCCESS", "run_id": str(run.id)},
+            {
+                "orchestrator": plan.get("_metadata", {}).get("orchestrator"),
+                "provider": plan.get("_metadata", {}).get("provider"),
+                "model": plan.get("_metadata", {}).get("model"),
+                "latency_ms": plan.get("_metadata", {}).get("latency_ms"),
+                "fallback_occurred": plan.get("_metadata", {}).get("fallback_occurred", False),
+                "fallback_reason": plan.get("_metadata", {}).get("fallback_reason"),
+                "planning_status": "DEGRADED" if planning_degraded else "SUCCESS",
+                "run_id": str(run.id),
+            },
         )
         session.commit()
         investigation = session.get(Investigation, uuid.UUID(investigation_id))

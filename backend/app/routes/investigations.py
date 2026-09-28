@@ -50,6 +50,7 @@ def _read_investigation(session, investigation: Investigation) -> InvestigationR
     return InvestigationRead(
         id=investigation.id,
         owner_id=investigation.owner_id,
+        research_context=session.scalar(select(User.organization).where(User.id == investigation.owner_id)),
         title=investigation.title,
         research_question=investigation.question,
         domain=investigation.domain,

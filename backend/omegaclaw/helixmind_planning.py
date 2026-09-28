@@ -21,6 +21,10 @@ logger = logging.getLogger(__name__)
 
 _selected_provider = "unknown"
 _selected_model = "unknown"
+_selected_latency_ms = 0
+_selected_fallback_occurred = False
+_selected_fallback_reason: str | None = None
+_selected_usage: dict[str, int] = {}
 
 _PLANNING_INSTRUCTION = """You are HelixMind's OmegaClaw research planning agent.
 Return exactly one JSON object and nothing else. Build a useful research plan
@@ -58,7 +62,8 @@ class HelixMindPlanningProvider(providers.LLMProvider):
         return None
 
     def chat(self, prompt: str, max_tokens: int = 6000, reasoning_mode: str = "medium") -> str:
-        global _selected_provider, _selected_model
+        global _selected_provider, _selected_model, _selected_latency_ms
+        global _selected_fallback_occurred, _selected_fallback_reason, _selected_usage
         try:
             response = self.router.chat(
                 [
@@ -79,7 +84,18 @@ class HelixMindPlanningProvider(providers.LLMProvider):
                 return "()"
             _selected_provider = response.provider
             _selected_model = response.model
-            logger.info("OmegaClaw planning accepted provider=%s model=%s fallback=%s", response.provider, response.model, response.fallback_occurred)
+            _selected_latency_ms = response.latency_ms
+            _selected_fallback_occurred = response.fallback_occurred
+            _selected_fallback_reason = response.fallback_reason
+            _selected_usage = {
+                key: value for key, value in response.usage.items()
+                if key in {"prompt_tokens", "completion_tokens", "total_tokens"} and isinstance(value, int)
+            }
+            logger.info(
+                "OmegaClaw planning accepted provider=%s model=%s fallback=%s fallback_reason=%s latency_ms=%s",
+                response.provider, response.model, response.fallback_occurred,
+                response.fallback_reason or "none", response.latency_ms,
+            )
             # Deliver through OmegaClaw's selected communication channel. A
             # textual `(send ...)` return is only parsed as a loop command and
             # does not reliably invoke the Python channel callback.
@@ -154,7 +170,13 @@ class HelixMindPlanningChannel(channels.CommChannel):
             return
         print(
             "HELIXMIND_PLAN_JSON:" + json.dumps(
-                {"plan": plan, "provider": _selected_provider, "model": _selected_model},
+                {
+                    "plan": plan, "provider": _selected_provider, "model": _selected_model,
+                    "latency_ms": _selected_latency_ms,
+                    "fallback_occurred": _selected_fallback_occurred,
+                    "fallback_reason": _selected_fallback_reason,
+                    "usage": _selected_usage,
+                },
                 ensure_ascii=True,
                 separators=(",", ":"),
             ),

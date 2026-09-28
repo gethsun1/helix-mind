@@ -92,6 +92,12 @@ def run_research_planning(*, title: str, research_question: str, domain: str) ->
         plan = envelope["plan"]
         provider = envelope.get("provider")
         model = envelope.get("model")
+        provider_metadata = {
+            "latency_ms": envelope.get("latency_ms"),
+            "fallback_occurred": envelope.get("fallback_occurred", False),
+            "fallback_reason": envelope.get("fallback_reason"),
+            "usage": envelope.get("usage", {}),
+        }
     except (json.JSONDecodeError, KeyError, TypeError) as error:
         raise OmegaClawPlanningError("OmegaClaw returned an invalid structured plan.") from error
 
@@ -114,6 +120,7 @@ def run_research_planning(*, title: str, research_question: str, domain: str) ->
         "orchestrator": "OmegaClaw",
         "provider": provider if isinstance(provider, str) else "unknown",
         "model": model if isinstance(model, str) else "unknown",
+        **provider_metadata,
     }
     return plan
 

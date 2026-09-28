@@ -9,10 +9,30 @@ from app.config import get_settings
 from app.db import SessionLocal
 from app.main import app
 from app.models import Investigation, InvestigationPaper, InvestigationRun, Paper, ResearchSnapshot, User
-from app.research_reproducibility import compare_snapshots, create_run, digest_json, freeze_snapshot
+from app.research_reproducibility import _safe_metadata, compare_snapshots, create_run, digest_json, freeze_snapshot
 
 
 TEST_SECRET = "phase4a-reproducibility-secret"
+
+
+def test_snapshot_metadata_keeps_only_safe_provider_usage_counts():
+    safe = _safe_metadata({
+        "provider": "asi",
+        "model": "asi1-mini",
+        "fallback_occurred": True,
+        "fallback_reason": "rate_limit",
+        "latency_ms": 21,
+        "usage": {"prompt_tokens": 7, "completion_tokens": 4, "total_tokens": 11, "raw": "not-safe"},
+        "api_key": "not-safe",
+    })
+    assert safe == {
+        "provider": "asi",
+        "model": "asi1-mini",
+        "fallback_occurred": True,
+        "fallback_reason": "rate_limit",
+        "latency_ms": 21,
+        "usage": {"prompt_tokens": 7, "completion_tokens": 4, "total_tokens": 11},
+    }
 
 
 def _owner_id():

@@ -11,18 +11,23 @@ The shared backend adapter supports OpenAI-compatible chat and embedding
 requests, model discovery, bounded retries, error categories, latency, usage,
 fallback metadata, and safe diagnostics.
 
-OmegaClaw routing is configurable:
+OmegaClaw routing is configurable. Production currently keeps ASI Cloud as the
+primary provider and Gemini as fallback. Groq is configured but excluded from
+the route while its `/models` endpoint returns HTTP 403 from the VPS:
+`Access denied. Please check your network settings.` Model discovery must
+succeed before Groq can be evaluated or enabled.
 
 ```text
 OMEGACLAW_PROVIDER=asi
 OMEGACLAW_MODEL=asi1-mini
-OMEGACLAW_PROVIDER_ORDER=asi,groq,gemini
+OMEGACLAW_PROVIDER_ORDER=asi,gemini
 ```
 
-When `OMEGACLAW_PROVIDER` is unset, the existing Gemini → Groq behavior is
-preserved. ASI is then available without silently changing the existing
-production priority. When ASI is selected, the fallback order is ASI → Groq →
-Gemini.
+The configured order is deterministic and observable. When Groq is restored,
+it can be explicitly placed before Gemini after its catalog and structured
+planning contract are verified. A permission failure is classified separately
+from authentication failure and can fall through to the next configured
+provider.
 
 ## ASI Cloud configuration
 
