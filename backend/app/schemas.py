@@ -399,6 +399,8 @@ class ResearchSnapshotRead(BaseModel):
     manifest_digest: str = Field(serialization_alias="manifestDigest")
     digest_valid: bool = Field(default=False, serialization_alias="digestValid")
     manifest: dict
+    manifest_response_digest: str = Field(default="", serialization_alias="manifestResponseDigest")
+    manifest_redacted: bool = Field(default=False, serialization_alias="manifestRedacted")
     created_at: datetime = Field(serialization_alias="createdAt")
 
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)

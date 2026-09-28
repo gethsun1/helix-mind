@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.knowledge_extraction import DeterministicKnowledgeExtractor, claim_hash, normalize_claim, normalize_entity_name
 from app.knowledge_metta import render_investigation_metta, validate_metta_text
-from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Hypothesis, Investigation, InvestigationEvent, InvestigationPaper, KnowledgeGap, Paper, Proposition, Relationship, RelationshipClaim
+from app.models import Claim, ClaimEntity, ClaimEvidence, Entity, Evidence, Hypothesis, Investigation, InvestigationEvent, InvestigationPaper, InvestigationRun, KnowledgeGap, Paper, Proposition, Relationship, RelationshipClaim, ResearchSnapshot
+from app.research_reproducibility import scoped_snapshot_manifest
 from app.scientific_reasoning import evidence_polarity, normalize_proposition_part, proposition_key
 
 
@@ -156,7 +157,9 @@ def investigation_graph(session: Session, investigation_id: object, *, query: st
     claims = {claim.id: claim for claim in session.scalars(select(Claim).where(Claim.id.in_(claim_ids))).all()} if claim_ids else {}
     paper_ids = {claim.paper_id for claim in claims.values()}
     papers = {paper.id: paper for paper in session.scalars(select(Paper).where(Paper.id.in_(paper_ids))).all()} if paper_ids else {}
-    nodes = [{"id": str(entity.id), "type": "ENTITY", "label": entity.canonical_name, "entityType": entity.entity_type, "aliases": entity.aliases or []} for entity in entities]
+    # Entity rows are shared across investigations, so their aggregated aliases
+    # are not safe to expose without alias-level scoped provenance.
+    nodes = [{"id": str(entity.id), "type": "ENTITY", "label": entity.canonical_name, "entityType": entity.entity_type, "aliases": []} for entity in entities]
     edges = []
     for relationship in relationships:
         related_claims = [claim for claim in claims.values() if session.scalar(select(RelationshipClaim).where(RelationshipClaim.relationship_id == relationship.id, RelationshipClaim.claim_id == claim.id)) is not None]
@@ -174,3 +177,94 @@ def investigation_graph(session: Session, investigation_id: object, *, query: st
     nodes.extend({"id": str(item.id), "type": "KNOWLEDGE_GAP", "label": item.description, "entityType": item.severity, "aliases": []} for item in gaps)
     edges.extend({"id": f"gap-{item.id}", "source": str(item.id), "target": str(item.proposition_id), "relationship": "GAP_FOR", "stance": item.status, "provenance": item.provenance, "claims": []} for item in gaps)
     return {"nodes": nodes, "edges": edges}
+
+
+def entity_detail(session: Session, investigation_id: object, entity_id: object) -> dict[str, Any] | None:
+    """Return one entity and its source-backed neighborhood in this investigation."""
+    entity = session.scalar(
+        select(Entity).join(ClaimEntity, ClaimEntity.entity_id == Entity.id)
+        .join(Claim, Claim.id == ClaimEntity.claim_id)
+        .where(Claim.investigation_id == investigation_id, Entity.id == entity_id).distinct()
+    )
+    if entity is None:
+        return None
+    scoped_entity_ids = set(session.scalars(select(ClaimEntity.entity_id).join(Claim, Claim.id == ClaimEntity.claim_id)
+        .where(Claim.investigation_id == investigation_id).distinct()).all())
+    relationships = session.scalars(select(Relationship).where(
+        Relationship.investigation_id == investigation_id,
+        or_(Relationship.subject_entity_id == entity.id, Relationship.object_entity_id == entity.id),
+    ).order_by(Relationship.predicate, Relationship.id)).all()
+    relation_data = []
+    for relationship in relationships:
+        if relationship.subject_entity_id not in scoped_entity_ids or relationship.object_entity_id not in scoped_entity_ids:
+            continue
+        subject = session.get(Entity, relationship.subject_entity_id)
+        target = session.get(Entity, relationship.object_entity_id)
+        claims = session.scalars(select(Claim).join(RelationshipClaim, RelationshipClaim.claim_id == Claim.id)
+            .where(RelationshipClaim.relationship_id == relationship.id, Claim.investigation_id == investigation_id)
+            .order_by(Claim.id)).all()
+        support = []
+        for claim in claims:
+            evidence = session.scalars(select(Evidence).join(ClaimEvidence, ClaimEvidence.evidence_id == Evidence.id)
+                .where(ClaimEvidence.claim_id == claim.id, Evidence.investigation_id == investigation_id)).all()
+            paper = session.get(Paper, claim.paper_id)
+            support.append({"claimId": str(claim.id), "claim": claim.claim_text,
+                "paper": {"id": str(paper.id), "title": paper.title, "source": paper.source,
+                    "pmid": paper.pmid, "doi": paper.doi} if paper else None,
+                "evidence": [{"id": str(item.id), "text": item.extracted_text,
+                    "sourceLocation": item.source_location, "sourceSpan": item.source_span,
+                    "polarity": item.polarity, "propositionId": str(item.proposition_id) if item.proposition_id else None}
+                    for item in evidence]})
+        proposition_id = (relationship.relationship_metadata or {}).get("proposition_id")
+        proposition = session.scalar(select(Proposition).where(
+            Proposition.investigation_id == investigation_id, Proposition.id == proposition_id,
+        )) if proposition_id else None
+        relation_data.append({"id": str(relationship.id), "predicate": relationship.predicate,
+            "stance": relationship.stance, "confidence": float(relationship.confidence),
+            "confidenceMeaning": (relationship.relationship_metadata or {}).get("confidence_semantics"),
+            "subject": {"id": str(subject.id), "label": subject.canonical_name, "type": subject.entity_type} if subject else None,
+            "object": {"id": str(target.id), "label": target.canonical_name, "type": target.entity_type} if target else None,
+            "proposition": {"id": str(proposition.id), "description": proposition.description, "provenance": proposition.provenance} if proposition else None,
+            "support": support})
+    claims = session.scalars(select(Claim).join(ClaimEntity, ClaimEntity.claim_id == Claim.id)
+        .where(ClaimEntity.entity_id == entity.id, Claim.investigation_id == investigation_id).distinct().order_by(Claim.id)).all()
+    propositions = session.scalars(select(Proposition).join(Claim, Claim.proposition_id == Proposition.id)
+        .join(ClaimEntity, ClaimEntity.claim_id == Claim.id)
+        .where(ClaimEntity.entity_id == entity.id, Proposition.investigation_id == investigation_id).distinct()).all()
+    hypotheses = session.scalars(select(Hypothesis).where(Hypothesis.investigation_id == investigation_id,
+        Hypothesis.proposition_id.in_([item.id for item in propositions])).order_by(Hypothesis.id)).all() if propositions else []
+    snapshots = session.scalars(select(ResearchSnapshot).where(ResearchSnapshot.investigation_id == investigation_id)
+        .order_by(ResearchSnapshot.snapshot_number)).all()
+    snapshot_provenance = []
+    for snapshot in snapshots:
+        if any(str(row.get("id")) == str(entity.id) for row in (snapshot.manifest or {}).get("entities", [])):
+            run = session.get(InvestigationRun, snapshot.run_id)
+            snapshot_provenance.append({"snapshotId": str(snapshot.id), "snapshotNumber": snapshot.snapshot_number,
+                "manifestDigest": snapshot.manifest_digest, "runId": str(snapshot.run_id),
+                "runNumber": run.run_number if run else None})
+    return {"id": str(entity.id), "canonicalName": entity.canonical_name, "normalizedName": entity.normalized_name,
+        "entityType": entity.entity_type, "aliases": [],
+        "relationships": relation_data,
+        "claims": [{"id": str(item.id), "text": item.claim_text, "paperId": str(item.paper_id)} for item in claims],
+        "propositions": [{"id": str(item.id), "description": item.description, "provenance": item.provenance} for item in propositions],
+        "hypotheses": [{"id": str(item.id), "statement": item.statement, "status": item.status,
+            "provenance": item.provenance} for item in hypotheses], "snapshots": snapshot_provenance}
+
+
+def graph_snapshot_diff(left: ResearchSnapshot, right: ResearchSnapshot) -> dict[str, Any]:
+    """Compare bounded graph state from two immutable snapshots."""
+    if left.investigation_id != right.investigation_id:
+        raise ValueError("Snapshots must belong to the same investigation.")
+    lm, rm = scoped_snapshot_manifest(left.manifest), scoped_snapshot_manifest(right.manifest)
+    def keyed(section: str, key):
+        return {key(row): row for row in lm.get(section, [])}, {key(row): row for row in rm.get(section, [])}
+    le, re_ = keyed("entities", lambda row: (row.get("entity_type"), row.get("normalized_name")) if row.get("normalized_name") else row["id"])
+    lr, rr = keyed("relationships", lambda row: (str(row.get("subject_entity_id")), row.get("predicate"), str(row.get("object_entity_id"))))
+    def delta(before, after):
+        return {"added": [after[k] for k in sorted(after.keys() - before.keys(), key=str)],
+            "removed": [before[k] for k in sorted(before.keys() - after.keys(), key=str)],
+            "changed": [{"before": before[k], "after": after[k]} for k in sorted(before.keys() & after.keys(), key=str)
+                if before[k].get("stance") != after[k].get("stance") or before[k].get("claim_ids", []) != after[k].get("claim_ids", [])
+                or before[k].get("confidence") != after[k].get("confidence")]}
+    return {"leftSnapshotId": str(left.id), "rightSnapshotId": str(right.id),
+        "entities": delta(le, re_), "relationships": delta(lr, rr)}

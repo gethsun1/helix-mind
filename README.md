@@ -51,6 +51,7 @@ future availability of external inference or literature providers.
 | Reproducibility and artifacts | Parent/child run lineage, immutable SHA-256 snapshot manifests, Markdown/scientific report/Obsidian exports, authenticated downloads |
 | MeTTa / PeTTa boundary | PostgreSQL is canonical; MeTTa is a structured projection and PeTTa validates it |
 | M1/M2 verification | 57 backend tests passed; frontend production build passed; real two-run memory-influenced workflow and snapshot/artifact digests verified |
+| M3 Knowledge Graph 2.0 | Investigation-scoped entity detail and graph diff, evidence provenance, snapshot redaction, same-owner and cross-owner isolation; 60 backend tests and frontend production build passed |
 
 ## M1/M2 verification (2026-09-28)
 
@@ -72,6 +73,28 @@ These checks describe the verified run, not a guarantee about future external
 provider availability. The fixed NAL/PLN proof is a separate technical proof;
 it is not the production evidence-reasoning pipeline. See the
 [runtime notes](./docs/OMEGACLAW_RUNTIME.md) for further boundaries.
+
+## M3 verification — Knowledge Graph 2.0 (2026-09-28)
+
+M3 adds an investigation-scoped entity detail API and provenance neighborhood,
+typed relationship inspection, and snapshot graph comparison. Entity identity
+remains conservative and deterministic; global aliases are omitted from graph
+responses because they do not carry investigation-level provenance. Historical
+snapshot API views redact shared entity metadata while preserving the immutable
+stored manifests and their original digests. See the
+[Knowledge Graph 2.0 design and audit](./docs/KNOWLEDGE_GRAPH_2.0.md).
+
+The isolated PostgreSQL `helixmind_test` database was at repository migration
+head. The full backend suite passed with **60 tests**, the frontend production
+build passed, and `git diff --check` passed. Database-backed regression tests
+cover same-owner cross-investigation and cross-owner isolation, entity detail,
+and snapshot graph diff. The real CRISPR/sickle-cell workflow completed with
+PubMed and Europe PMC retrieval, a valid immutable snapshot, deterministic
+MeTTa output, and successful PeTTa runtime validation. The frontend graph
+explorer was also interactively verified against real API data. These results
+are point-in-time verification and do not guarantee future external provider
+availability. No production migration or deployment was performed as part of
+M3 verification.
 
 ## Architecture
 
@@ -480,7 +503,7 @@ not implemented.
 
 ## Roadmap
 
-### Completed through M2
+### Completed through M3
 
 - Google authentication, persistent researcher identity, USER/ADMIN roles,
   protected APIs, and owner-scoped research projects
@@ -500,12 +523,11 @@ not implemented.
   authenticated artifact registry and downloads
 - M1 baseline recovery and M2 workflow hardening, verified 2026-09-28 (see
   [M1/M2 verification](#m1m2-verification-2026-09-28))
+- M3 typed, provenance-aware entity exploration and snapshot graph diff,
+  verified 2026-09-28 (see [M3 verification](#m3-verification--knowledge-graph-20-2026-09-28))
 
 ### Next milestones — future work, not implemented
 
-- **M3 — Knowledge Graph 2.0:** richer typed and filterable graph queries,
-  provenance-aware expansion, snapshot-aware exploration, and accessible
-  alternatives
 - **M4 — Literature Intelligence 2.0:** additional source adapters,
   conservative identifier resolution, citation metadata, and stronger
   deduplication
