@@ -1,7 +1,10 @@
 import httpx
+from datetime import date
 
 from app.config import Settings
-from app.literature import EUROPE_PMC, LiteratureClient, _clean_doi, _clean_pmcid, _clean_pmid
+from app.literature import EUROPE_PMC, LiteratureClient, NormalizedPaper, _clean_doi, _clean_pmcid, _clean_pmid, deduplicate_papers
+from app.literature_intelligence import calculate_relevance, deduplication_groups, identity_keys, normalized_title, snapshot_literature_diff
+from app.models import Paper
 
 
 PUBMED_XML = b"""<?xml version='1.0' encoding='UTF-8'?>
@@ -72,3 +75,48 @@ def test_identifier_normalization_and_provider_registry() -> None:
     client = LiteratureClient(settings=Settings(), client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(200))))
     assert set(client.providers) == {"PUBMED", EUROPE_PMC}
     client.close()
+
+
+def test_literature_identity_normalizes_identifiers_and_keeps_title_matches_advisory() -> None:
+    first = Paper(id="00000000-0000-0000-0000-000000000001", title="CRISPR: HBB editing", source="PUBMED", external_id="1", doi="https://doi.org/10.1000/EXAMPLE", pmid="123")
+    second = Paper(id="00000000-0000-0000-0000-000000000002", title="CRISPR HBB editing", source="EUROPE_PMC", external_id="2", doi="10.1000/example", pmid="123")
+    assert normalized_title(first.title) == normalized_title(second.title)
+    assert "doi:10.1000/example" in identity_keys(first)
+    groups = deduplication_groups([first, second])
+    assert any(item["basis"] == "canonical_identifier" and not item["merged"] for item in groups)
+    assert any(item["basis"] == "title_candidate" and not item["merged"] for item in groups)
+
+
+def test_literature_relevance_is_deterministic_bounded_and_separate_from_confidence() -> None:
+    kwargs = {"rank": 1, "evidence_count": 2, "entity_count": 4, "has_proposition": True, "has_hypothesis": False}
+    first = calculate_relevance(**kwargs)
+    assert calculate_relevance(**kwargs) == first
+    assert first["score"] == 0.75
+    assert first["inputs"]["entity_overlap"] == 1.0
+    assert "confidence" not in first
+    assert calculate_relevance(rank=None, evidence_count=0, entity_count=0, has_proposition=False, has_hypothesis=False)["score"] == 0
+    assert calculate_relevance(rank=-4, evidence_count=-1, entity_count=0, has_proposition=False, has_hypothesis=False)["inputs"]["retrieval_rank"] == 0
+
+
+def test_canonical_dedup_uses_identifiers_and_conservative_title_author_year() -> None:
+    pubmed = NormalizedPaper(source="PUBMED", external_id="123", title="Source title", abstract="Abstract", authors=["A Author"], publication_date=date(2024, 1, 1), doi="10.1000/shared", url=None, metadata={"source_records": ["PUBMED"]}, pmid="123")
+    europe = NormalizedPaper(source="EUROPE_PMC", external_id="PMC123", title="Different provider title", abstract=None, authors=["A Author"], publication_date=date(2024, 1, 1), doi="10.1000/shared", url=None, metadata={"source_records": ["EUROPE_PMC"]}, pmid="123")
+    fallback_a = NormalizedPaper(source="PUBMED", external_id="a", title="A punctuation-sensitive title!", abstract=None, authors=["A Author"], publication_date=date(2022, 1, 1), doi=None, url=None)
+    fallback_same = NormalizedPaper(source="EUROPE_PMC", external_id="b", title="A punctuation-sensitive title", abstract=None, authors=["A Author"], publication_date=date(2022, 4, 1), doi=None, url=None)
+    fallback_distinct_author = NormalizedPaper(source="EUROPE_PMC", external_id="c", title="A punctuation-sensitive title", abstract=None, authors=["Different Author"], publication_date=date(2022, 1, 1), doi=None, url=None)
+    unique, removed = deduplicate_papers([pubmed, europe, fallback_a, fallback_same, fallback_distinct_author])
+    assert len(unique) == 3 and removed == 2
+    assert set(unique[0].metadata["source_records"]) == {"PUBMED", "EUROPE_PMC"}
+
+
+def test_snapshot_literature_diff_uses_frozen_record_links() -> None:
+    paper = {"id": "p1", "title": "Fixture publication"}
+    left = {"papers": [paper], "claims": [{"id": "c1", "paper_id": "p1", "proposition_id": "pr1"}], "evidence": [{"id": "e1", "paper_id": "p1", "proposition_id": "pr1", "extracted_text": "Original span"}], "entities": [], "relationships": [], "propositions": [{"id": "pr1", "description": "p"}], "hypotheses": []}
+    right = {"papers": [paper], "claims": [{"id": "c1", "paper_id": "p1", "proposition_id": "pr1"}, {"id": "c2", "paper_id": "p1", "proposition_id": "pr1"}], "evidence": [{"id": "e1", "paper_id": "p1", "proposition_id": "pr1", "extracted_text": "Changed span"}, {"id": "e2", "paper_id": "p1", "proposition_id": "pr1"}], "entities": [], "relationships": [], "propositions": [{"id": "pr1", "description": "p"}], "hypotheses": [{"id": "h1", "proposition_id": "pr1"}]}
+    result = snapshot_literature_diff(left, right)
+    assert result["publicationsAdded"] == [] and result["publicationsRemoved"] == []
+    changes = result["contributionChanges"][0]["changes"]
+    assert changes["evidence"]["added"] == ["e2"]
+    assert changes["evidence"]["changed"] == ["e1"]
+    assert changes["claims"]["added"] == ["c2"]
+    assert changes["hypotheses"]["added"] == ["h1"]

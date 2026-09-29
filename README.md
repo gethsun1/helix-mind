@@ -35,8 +35,8 @@ evidence-system assessments, not clinical probabilities or scientific truth.
 
 ## Current status
 
-This status reflects the M1/M2 repository verification completed on
-2026-09-28. Results below are point-in-time checks; they do not guarantee
+This status reflects the M4 acceptance verification completed on
+2026-09-29. Results below are point-in-time checks; they do not guarantee
 future availability of external inference or literature providers.
 
 | Area | Current status |
@@ -50,8 +50,15 @@ future availability of external inference or literature providers.
 | Persistent research memory | Explicit Human Research Decisions, owner/investigation scope, source provenance, active/inactive state, auditable subsequent-run application |
 | Reproducibility and artifacts | Parent/child run lineage, immutable SHA-256 snapshot manifests, Markdown/scientific report/Obsidian exports, authenticated downloads |
 | MeTTa / PeTTa boundary | PostgreSQL is canonical; MeTTa is a structured projection and PeTTa validates it |
-| M1/M2 verification | 57 backend tests passed; frontend production build passed; real two-run memory-influenced workflow and snapshot/artifact digests verified |
-| M3 Knowledge Graph 2.0 | Investigation-scoped entity detail and graph diff, evidence provenance, snapshot redaction, same-owner and cross-owner isolation; 60 backend tests and frontend production build passed |
+| M1 — Persistent Research Infrastructure | Persistent research workflow, owner-scoped investigations, literature retrieval, evidence, and reproducible artifacts |
+| M2 — Research & Innovation Infrastructure Hardening | Hardened research workflow, ownership, provider attribution, persistent research memory, and reproducibility |
+| M3 — Knowledge Graph 2.0 | Investigation-scoped entity detail and graph diff, evidence provenance, snapshot redaction, same-owner and cross-owner isolation |
+| M4 — Literature Intelligence 2.0 | Investigation-scoped publication intelligence, auditable relevance, evidence coverage, immutable snapshot contribution comparison, and publication/graph navigation; accepted with 64 backend tests and Playwright/Chromium smoke test passed |
+
+The current dependency audit reports one critical Next.js finding and one
+high PostCSS finding. Remediation requires a separate Next.js major-version
+upgrade and has not yet been performed. This remains a separate security
+maintenance track; no deployment was performed as part of M4.
 
 ## M1/M2 verification (2026-09-28)
 
@@ -95,6 +102,33 @@ explorer was also interactively verified against real API data. These results
 are point-in-time verification and do not guarantee future external provider
 availability. No production migration or deployment was performed as part of
 M3 verification.
+
+## M4 verification — Literature Intelligence 2.0 (2026-09-29)
+
+M4 adds investigation-scoped literature intelligence on the existing canonical
+publication, evidence, graph, and immutable snapshot records. It provides
+canonical publication identity and deduplication, publication evidence
+contribution profiles, and auditable relevance using the versioned
+`literature-relevance-v1` formula. Relevance is a deterministic investigation
+ordering/linkage signal; it is not scientific truth probability, clinical
+probability, or evidence confidence. Limited-support labels describe retrieved
+evidence coverage and do not imply evidence of absence.
+
+Publication and graph navigation works in both directions while preserving
+source provenance and investigation/owner isolation. Snapshot comparison reads
+immutable manifests and compares publication contributions reproducibly. The
+implementation retains PubMed and Europe PMC as its literature providers.
+See the [M4 architecture and API notes](./docs/LITERATURE_INTELLIGENCE_2.0.md)
+and the [M4 acceptance report](./docs/M4_LITERATURE_INTELLIGENCE_2.0_REPORT.md).
+
+The accepted verification passed **64 backend tests** and a Playwright/
+Chromium smoke test. The real CRISPR–sickle-cell workflow retained 20 canonical
+publications, 162 evidence records, 138 reported graph entities, and 13
+relationships. Both literature providers succeeded, and all 162 evidence
+spans matched their source abstracts. Two valid snapshots were compared;
+comparison reproduced 20 retained publications with zero added, removed, or
+changed contributions. These are point-in-time results, not guarantees of
+future provider availability. No deployment was performed as part of M4.
 
 ## Architecture
 
@@ -341,6 +375,11 @@ session. Important routes include:
 | `GET/POST /investigations/{id}/runs` | Owner-scoped run lineage and queued reproducible reruns |
 | `GET/POST /investigations/{id}/snapshots` | Immutable run snapshots and source manifests |
 | `GET /investigations/{id}/snapshots/compare` | Deterministic comparison of two snapshots |
+| `GET /investigations/{id}/literature/intelligence` | Investigation literature landscape, contribution paths, duplicate candidates, and limited-support coverage |
+| `GET /investigations/{id}/literature/publications/{paper_id}` | Publication contribution profile and auditable relevance inputs |
+| `GET /investigations/{id}/literature/publications/{paper_id}/graph` | Investigation-scoped graph contribution for a publication |
+| `GET /investigations/{id}/literature/graph/{kind}/{record_id}/publications` | Resolve graph entity, relationship, proposition, or hypothesis support to publications |
+| `GET /investigations/{id}/literature/compare` | Compare publication contributions across two immutable snapshots |
 | `GET/POST /investigations/{id}/snapshots/{snapshot}/artifacts` | List or generate private Markdown, scientific report, or Obsidian artifacts |
 | `GET /investigations/{id}/snapshots/{snapshot}/artifacts/{artifact}/download` | Download a completed owner-scoped artifact |
 | `GET /papers/{id}` | Paper detail and investigation provenance |
@@ -503,7 +542,7 @@ not implemented.
 
 ## Roadmap
 
-### Completed through M3
+### Completed through M4
 
 - Google authentication, persistent researcher identity, USER/ADMIN roles,
   protected APIs, and owner-scoped research projects
@@ -525,15 +564,19 @@ not implemented.
   [M1/M2 verification](#m1m2-verification-2026-09-28))
 - M3 typed, provenance-aware entity exploration and snapshot graph diff,
   verified 2026-09-28 (see [M3 verification](#m3-verification--knowledge-graph-20-2026-09-28))
+- M4 investigation-scoped literature intelligence, auditable relevance,
+  limited-support coverage, immutable snapshot contribution comparison, and
+  publication/graph navigation, verified 2026-09-29 (see
+  [M4 verification](#m4-verification--literature-intelligence-20-2026-09-29))
 
-### Next milestones — future work, not implemented
+### Next milestone
 
-- **M4 — Literature Intelligence 2.0:** additional source adapters,
-  conservative identifier resolution, citation metadata, and stronger
-  deduplication
 - **M5 — Semantic Extraction Pilot:** versioned shadow-mode extraction,
   candidate review, semantic similarity, and contradiction candidates while
-  retaining the deterministic baseline
+  retaining the deterministic baseline. M5 has not started.
+
+### Later milestones — future work, not implemented
+
 - **M6 — Domain Adapters:** configurable domain support and validated domain
   fixtures, starting with the current biotechnology demonstration
 - **M7 — Inference Observability:** expanded provider/model, latency, usage,
