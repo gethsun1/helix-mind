@@ -6,6 +6,6 @@ psycopg[binary]==3.2.6
 redis==5.2.1
 rq==2.1.0
 uvicorn[standard]==0.34.0
-pytest==8.3.5
+pytest==9.0.3
 httpx==0.28.1
-PyJWT==2.10.1
+PyJWT==2.14.0
