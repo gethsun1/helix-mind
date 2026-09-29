@@ -30,8 +30,8 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
     paper_a_id, paper_b_id = uuid.uuid4(), uuid.uuid4()
     shared_id, private_a_id, target_b_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     removed_b_entity_id, added_b_entity_id = uuid.uuid4(), uuid.uuid4()
-    claim_a_id, claim_b_id, claim_b2_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
-    evidence_a_id, evidence_b_id, evidence_b2_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    claim_a_id, claim_b_id, claim_b2_id, claim_shared_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    evidence_a_id, evidence_b_id, evidence_b2_id, evidence_shared_id = uuid.uuid4(), uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
     proposition_a_id, proposition_b_id = uuid.uuid4(), uuid.uuid4()
     relation_a_id, relation_b_id = uuid.uuid4(), uuid.uuid4()
     hypothesis_a_id, hypothesis_b_id = uuid.uuid4(), uuid.uuid4()
@@ -64,24 +64,29 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
         session.add_all([
             Claim(id=claim_a_id, investigation_id=investigation_a_id, paper_id=paper_a_id, proposition_id=proposition_a_id, claim_text="Fixture evidence A.", normalized_text="fixture evidence a.", claim_hash=str(claim_a_id), extraction_method="test_fixture", claim_metadata={"fixture": "synthetic-A"}),
             Claim(id=claim_b_id, investigation_id=investigation_b_id, paper_id=paper_b_id, proposition_id=proposition_b_id, claim_text="Fixture evidence B.", normalized_text="fixture evidence b.", claim_hash=str(claim_b_id), extraction_method="test_fixture", claim_metadata={"fixture": "synthetic-B"}),
+            Claim(id=claim_shared_id, investigation_id=investigation_b_id, paper_id=paper_a_id, proposition_id=proposition_b_id, claim_text="Investigation B contribution to shared publication.", normalized_text="investigation b contribution to shared publication.", claim_hash=str(claim_shared_id), extraction_method="test_fixture", claim_metadata={"fixture": "synthetic-B-shared-publication"}),
             Evidence(id=evidence_a_id, investigation_id=investigation_a_id, paper_id=paper_a_id, proposition_id=proposition_a_id, source_location="abstract", source_span={"start": 0, "end": 19}, evidence_type="ABSTRACT", extracted_text="Fixture evidence A.", strength=0.6, confidence=0.99, polarity="SUPPORTS", extraction_method="test_fixture"),
             Evidence(id=evidence_b_id, investigation_id=investigation_b_id, paper_id=paper_b_id, proposition_id=proposition_b_id, source_location="abstract", source_span={"start": 0, "end": 19}, evidence_type="ABSTRACT", extracted_text="Fixture evidence B.", strength=0.6, confidence=0.99, polarity="SUPPORTS", extraction_method="test_fixture"),
+            Evidence(id=evidence_shared_id, investigation_id=investigation_b_id, paper_id=paper_a_id, proposition_id=proposition_b_id, source_location="synthetic_fixture", source_span=None, evidence_type="ABSTRACT", extracted_text="Investigation B contribution to shared publication.", strength=0.6, confidence=0.99, polarity="SUPPORTS", extraction_method="test_fixture"),
             Relationship(id=relation_a_id, investigation_id=investigation_a_id, subject_entity_id=shared_id, predicate="ASSOCIATED_WITH", object_entity_id=private_a_id, strength=0.6, confidence=0.99, source_type="TEST_FIXTURE", stance="SUPPORTS", relationship_metadata={"proposition_id": str(proposition_a_id), "fixture": "synthetic-A"}),
             Relationship(id=relation_b_id, investigation_id=investigation_b_id, subject_entity_id=shared_id, predicate="TARGETS", object_entity_id=target_b_id, strength=0.6, confidence=0.99, source_type="TEST_FIXTURE", stance="SUPPORTS", relationship_metadata={"proposition_id": str(proposition_b_id), "fixture": "synthetic-B"}),
             Hypothesis(id=hypothesis_a_id, investigation_id=investigation_a_id, proposition_id=proposition_a_id, statement="Fixture A hypothesis", strength=0.6, confidence=0.6, status="active", provenance={"fixture": "synthetic-A"}),
             Hypothesis(id=hypothesis_b_id, investigation_id=investigation_b_id, proposition_id=proposition_b_id, statement="Fixture B hypothesis", strength=0.6, confidence=0.6, status="active", provenance={"fixture": "synthetic-B"}),
             InvestigationPaper(investigation_id=investigation_a_id, paper_id=paper_a_id, source_query="synthetic fixture A", source="PUBMED"),
             InvestigationPaper(investigation_id=investigation_b_id, paper_id=paper_b_id, source_query="synthetic fixture B", source="EUROPE_PMC"),
+            InvestigationPaper(investigation_id=investigation_b_id, paper_id=paper_a_id, source_query="synthetic fixture B shared canonical paper", source="PUBMED"),
         ])
         session.flush()
         session.add_all([
             ClaimEntity(claim_id=claim_a_id, entity_id=shared_id, role="SUBJECT"),
             ClaimEntity(claim_id=claim_a_id, entity_id=private_a_id, role="OBJECT"),
             ClaimEntity(claim_id=claim_b_id, entity_id=shared_id, role="SUBJECT"),
+            ClaimEntity(claim_id=claim_shared_id, entity_id=shared_id, role="SUBJECT"),
             ClaimEntity(claim_id=claim_b_id, entity_id=target_b_id, role="OBJECT"),
             ClaimEntity(claim_id=claim_b_id, entity_id=removed_b_entity_id, role="MENTIONS"),
             ClaimEvidence(claim_id=claim_a_id, evidence_id=evidence_a_id, role="DIRECT"),
             ClaimEvidence(claim_id=claim_b_id, evidence_id=evidence_b_id, role="DIRECT"),
+            ClaimEvidence(claim_id=claim_shared_id, evidence_id=evidence_shared_id, role="DIRECT"),
             RelationshipClaim(relationship_id=relation_a_id, claim_id=claim_a_id),
             RelationshipClaim(relationship_id=relation_b_id, claim_id=claim_b_id),
         ])
@@ -150,7 +155,7 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
         assert detail.json()["aliases"] == []
         assert [row["id"] for row in detail.json()["relationships"]] == [str(relation_b_id)]
         detail_text = detail.text
-        for forbidden in ("A-only alias", "Fixture evidence A.", "Synthetic publication A", str(paper_a_id), str(evidence_a_id), str(proposition_a_id), str(hypothesis_a_id), str(snapshot_a_id)):
+        for forbidden in ("A-only alias", "Fixture evidence A.", str(evidence_a_id), str(proposition_a_id), str(hypothesis_a_id), str(snapshot_a_id)):
             assert forbidden not in detail_text
         for expected in ("Fixture evidence B.", "Fixture second support B.", "Synthetic publication B", "Fixture B proposition", "Fixture B hypothesis", str(snapshot_b2_id)):
             assert expected in detail_text
@@ -160,6 +165,47 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
         assert entity_list.status_code == 200
         assert "A-only alias" not in entity_list.text
         assert all(row["aliases"] == [] for row in entity_list.json())
+
+        literature = client.get(f"{base_b}/literature/intelligence", headers=headers_owner)
+        assert literature.status_code == 200
+        literature_data = literature.json()
+        assert literature_data["landscape"]["retrievedPublications"] == 2
+        assert literature_data["landscape"]["evidenceBearingPublications"] == 2
+        assert literature_data["landscape"]["entityLinkedPublications"] == 2
+        assert literature_data["landscape"]["propositionLinkedPublications"] == 2
+        assert literature_data["landscape"]["hypothesisLinkedPublications"] == 2
+        assert "Synthetic publication A" in literature.text and "Fixture evidence A." not in literature.text
+        publication_b = client.get(f"{base_b}/literature/publications/{paper_b_id}", headers=headers_owner)
+        assert publication_b.status_code == 200
+        assert publication_b.json()["contributions"]["evidence"][0]["sourceSpan"] == {"start": 0, "end": 19}
+        assert "Fixture evidence A." not in publication_b.text
+        shared_publication_b = client.get(f"{base_b}/literature/publications/{paper_a_id}", headers=headers_owner)
+        assert shared_publication_b.status_code == 200
+        assert "Investigation B contribution to shared publication." in shared_publication_b.text
+        assert "Fixture evidence A." not in shared_publication_b.text
+        shared_publication_a = client.get(f"/api/v1/investigations/{investigation_a_id}/literature/publications/{paper_a_id}", headers=headers_owner)
+        assert shared_publication_a.status_code == 200
+        assert "Fixture evidence A." in shared_publication_a.text
+        assert "Investigation B contribution to shared publication." not in shared_publication_a.text
+        assert client.get(f"{base_b}/literature/intelligence", headers=headers_other).status_code == 404
+        assert client.get(f"/api/v1/investigations/{investigation_a_id}/literature/publications/{paper_a_id}", headers=headers_other).status_code == 404
+
+        for kind, record_id in (("entity", shared_id), ("relationship", relation_b_id), ("proposition", proposition_b_id), ("hypothesis", hypothesis_b_id)):
+            response = client.get(f"{base_b}/literature/graph/{kind}/{record_id}/publications", headers=headers_owner)
+            assert response.status_code == 200
+            expected_ids = {str(paper_b_id)} if kind == "relationship" else {str(paper_a_id), str(paper_b_id)}
+            assert {row["publicationId"] for row in response.json()["publications"]} == expected_ids
+            assert "Fixture evidence B." in response.text
+            assert "Fixture evidence A." not in response.text
+        assert client.get(f"{base_b}/literature/graph/entity/{private_a_id}/publications", headers=headers_owner).status_code == 404
+        assert client.get(f"{base_b}/literature/graph/entity/{shared_id}/publications", headers=headers_other).status_code == 404
+
+        literature_diff = client.get(f"{base_b}/literature/compare?leftSnapshotId={snapshot_b_id}&rightSnapshotId={snapshot_b2_id}", headers=headers_owner)
+        assert literature_diff.status_code == 200
+        assert len(literature_diff.json()["publicationsRetained"]) == 2
+        assert literature_diff.json()["contributionChanges"][0]["changes"]["evidence"]["added"] == [str(evidence_b2_id)]
+        assert client.get(f"{base_b}/literature/compare?leftSnapshotId={snapshot_a_id}&rightSnapshotId={snapshot_b_id}", headers=headers_owner).status_code == 404
+        assert client.get(f"{base_b}/literature/compare?leftSnapshotId={snapshot_b_id}&rightSnapshotId={snapshot_b2_id}", headers=headers_other).status_code == 404
 
         for suffix, forbidden in (
             ("knowledge/claims", str(claim_a_id)),
@@ -190,11 +236,11 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
         assert snapshot_view["manifestRedacted"] is True and snapshot_view["digestValid"] is True
         assert snapshot_view["manifestResponseDigest"] == digest_json(snapshot_view["manifest"])
         assert shared_view["aliases"] == []
-        assert shared_view["metadata"]["source_papers"] == [str(paper_b_id)]
-        assert str(paper_a_id) not in snapshot_list.text and "A-only alias" not in snapshot_list.text
+        assert set(shared_view["metadata"]["source_papers"]) == {str(paper_a_id), str(paper_b_id)}
+        assert str(evidence_a_id) not in snapshot_list.text and str(claim_a_id) not in snapshot_list.text and "A-only alias" not in snapshot_list.text
         compare = client.get(f"{base_b}/snapshots/compare?leftSnapshotId={snapshot_b_id}&rightSnapshotId={snapshot_b2_id}", headers=headers_owner)
         assert compare.status_code == 200
-        assert str(paper_a_id) not in compare.text and "A-only alias" not in compare.text
+        assert str(evidence_a_id) not in compare.text and str(claim_a_id) not in compare.text and "A-only alias" not in compare.text
         assert client.get(f"/api/v1/investigations/{investigation_a_id}/knowledge/entities/{shared_id}", headers=headers_other).status_code == 404
 
         with SessionLocal() as session:
@@ -209,7 +255,8 @@ def test_same_owner_graph_routes_and_projections_are_investigation_scoped(monkey
             assert shared_snapshot_entity["aliases"] == ["A-only alias"]
             assert shared_snapshot_entity["metadata"]["source_papers"] == [str(paper_a_id), str(paper_b_id)]
         assert str(relation_a_id) in metta_a and str(relation_a_id) not in metta_b
-        assert str(paper_a_id) in metta_a and str(paper_a_id) not in metta_b
+        assert str(paper_a_id) in metta_a and str(paper_a_id) in metta_b
+        assert str(evidence_a_id) not in metta_b and str(claim_a_id) not in metta_b
         assert "A-only fixture disease" not in metta_b
         assert metta_b == metta_b_repeat
     finally:

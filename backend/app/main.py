@@ -14,6 +14,7 @@ from app.models import User
 from app.routes.investigations import router as investigations_router
 from app.routes.memory import router as memory_router
 from app.routes.literature import router as literature_router
+from app.routes.literature_intelligence import router as literature_intelligence_router
 from app.routes.knowledge import router as knowledge_router
 from app.routes.reasoning import router as reasoning_router
 from app.routes.reproducibility import router as reproducibility_router
@@ -42,6 +43,7 @@ app.add_middleware(
 app.include_router(investigations_router)
 app.include_router(memory_router)
 app.include_router(literature_router)
+app.include_router(literature_intelligence_router)
 app.include_router(knowledge_router)
 app.include_router(reasoning_router)
 app.include_router(reproducibility_router)
