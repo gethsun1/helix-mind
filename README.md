@@ -583,7 +583,11 @@ not implemented.
   owner-scoped asset versions, provenance verification, explicit rights
   declarations, and audit events. This does not adjudicate legal ownership;
   see the [C1 implementation](docs/C1_PRIVATE_PROVENANCE_RIGHTS_FOUNDATION.md).
-- **C2 — Verifiable Provenance Credentials / Anchors: FUTURE / OPTIONAL**.
+- **C2 foundation complete/verified** — version-bound
+  canonical digest records, authenticated scoped APIs, and a deterministic
+  `test/local` provider verified.
+- **Production external anchoring: unresolved** — no public external proof is
+  configured; see [C2 implementation and production boundary](docs/C2_EXTERNAL_PROVENANCE_ANCHOR.md).
 - **C3 — License Workflow / Rights Operations: FUTURE**.
 - **C4 — External Registry / Marketplace Adapter: FUTURE**.
 - **C5 — Commercial Operations: FUTURE**.
@@ -592,8 +596,8 @@ not implemented.
 
 ### Deferred and future milestones
 
-- **C2 — Verifiable Provenance Credentials / Anchors:** optional future work;
-  no chain or credential issuer is selected.
+- **C2 production provider:** remains unresolved; the verified `test/local`
+  provider is not an external timestamp, ledger, or public proof.
 - **C3 — License Workflow / Rights Operations:** future work requiring legal
   and business decisions.
 - **C4 — External Registry / Marketplace Adapter:** future work requiring a

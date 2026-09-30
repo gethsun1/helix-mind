@@ -15,8 +15,9 @@ from sqlalchemy import select
 from app.config import get_settings
 from app.db import SessionLocal
 from app.models import (AssetEvent, AssetRightsDeclaration, AssetVersion, Investigation,
-                        InvestigationRun, ResearchArtifact, ResearchSnapshot, ScientificAsset, User)
+                        InvestigationRun, ResearchArtifact, ResearchSnapshot, ScientificAsset, User, AssetProvenanceAnchor)
 from app.research_reproducibility import digest_json
+from app.provenance_anchors import get_anchor_provider
 from app.security import get_current_user
 
 router = APIRouter(prefix="/api/v1/investigations/{investigation_id}/assets", tags=["private-assets"])
@@ -346,3 +347,116 @@ def asset_provenance(investigation_id: UUID, asset_id: UUID, user: User = Depend
         return {"manifest": manifest, "manifest_digest": digest_json(manifest), "canonicalization_version": ASSET_CANONICALIZATION,
                 "verification": {"integrity_verified": all(c["passed"] for c in checks if c["code"] not in {"RIGHTS_DECLARATION", "RIGHTS_STATUS", "THIRD_PARTY_DECLARED", "INTENDED_USE", "PRIVATE_VISIBILITY", "NO_UNRESOLVED_DISPUTE"}),
                                  "checks": checks, "scientific_validity": "NOT_ASSESSED", "legal_ownership": "NOT_ASSESSED"}}
+
+
+def _anchor_read(row: AssetProvenanceAnchor) -> dict[str, Any]:
+    return {"id": row.id, "scientific_asset_id": row.scientific_asset_id, "asset_version_id": row.asset_version_id,
+            "canonical_provenance_digest": row.canonical_provenance_digest, "anchor_provider": row.anchor_provider,
+            "anchor_type": row.anchor_type, "external_reference": row.external_reference, "anchor_status": row.anchor_status,
+            "requested_at": row.requested_at, "anchored_at": row.anchored_at, "provider_metadata": row.provider_metadata,
+            "error_category": row.error_category}
+
+
+def _resolve_version(session, investigation_id: UUID, asset_id: UUID, version_id: UUID, user: User):
+    _scope(session, investigation_id, user)
+    asset = _asset(session, investigation_id, asset_id)
+    version = session.scalar(select(AssetVersion).where(AssetVersion.id == version_id,
+        AssetVersion.asset_id == asset.id, AssetVersion.investigation_id == investigation_id))
+    if version is None:
+        raise HTTPException(404, "Asset version not found.")
+    return asset, version
+
+
+@router.post("/{asset_id}/versions/{version_id}/anchors", status_code=201)
+def create_anchor(investigation_id: UUID, asset_id: UUID, version_id: UUID, user: User = Depends(get_current_user)):
+    with SessionLocal() as session:
+        asset, version = _resolve_version(session, investigation_id, asset_id, version_id, user)
+        checks = _checks(session, asset, version)
+        failed = [check["code"] for check in checks if not check["passed"]]
+        if failed:
+            raise HTTPException(409, {"message": "Asset version is not eligible for anchoring.", "failed_checks": failed})
+        manifest = _manifest(session, asset, version)
+        digest = digest_json(manifest)
+        existing = session.scalar(select(AssetProvenanceAnchor).where(
+            AssetProvenanceAnchor.asset_version_id == version.id,
+            AssetProvenanceAnchor.canonical_provenance_digest == digest,
+            AssetProvenanceAnchor.anchor_provider == "test/local"))
+        if existing:
+            return _anchor_read(existing)
+        provider = get_anchor_provider()
+        try:
+            result = provider.create_anchor(digest, str(version.id))
+        except Exception as error:
+            category = "timeout" if isinstance(error, TimeoutError) else "provider_failure"
+            row = AssetProvenanceAnchor(scientific_asset_id=asset.id, asset_version_id=version.id,
+                canonical_provenance_digest=digest, anchor_provider=provider.name, anchor_type="DETERMINISTIC_LOCAL_REFERENCE",
+                external_reference="", anchor_status="FAILED", created_by_user_id=user.id, error_category=category,
+                provider_metadata={"provider_scope": "local_test_only"})
+            session.add(row); session.commit()
+            raise HTTPException(503, "Anchor provider timed out." if category == "timeout" else "Anchor provider failed.") from None
+        row = AssetProvenanceAnchor(scientific_asset_id=asset.id, asset_version_id=version.id,
+            canonical_provenance_digest=digest, anchor_provider=result.provider, anchor_type=result.anchor_type,
+            external_reference=result.external_reference, anchor_status="ANCHORED", anchored_at=result.anchored_at,
+            created_by_user_id=user.id, provider_metadata=result.provider_metadata,
+            verification_metadata={"asset_version_id": str(version.id)})
+        session.add(row); session.commit(); session.refresh(row)
+        return _anchor_read(row)
+
+
+@router.get("/{asset_id}/versions/{version_id}/anchors")
+def list_anchors(investigation_id: UUID, asset_id: UUID, version_id: UUID, user: User = Depends(get_current_user)):
+    with SessionLocal() as session:
+        _, version = _resolve_version(session, investigation_id, asset_id, version_id, user)
+        rows = session.scalars(select(AssetProvenanceAnchor).where(AssetProvenanceAnchor.asset_version_id == version.id)
+                               .order_by(AssetProvenanceAnchor.created_at)).all()
+        return [_anchor_read(row) for row in rows]
+
+
+@router.get("/{asset_id}/versions/{version_id}/anchors/{anchor_id}")
+def get_anchor(investigation_id: UUID, asset_id: UUID, version_id: UUID, anchor_id: UUID, user: User = Depends(get_current_user)):
+    with SessionLocal() as session:
+        _, version = _resolve_version(session, investigation_id, asset_id, version_id, user)
+        row = session.scalar(select(AssetProvenanceAnchor).where(AssetProvenanceAnchor.id == anchor_id,
+            AssetProvenanceAnchor.asset_version_id == version.id))
+        if row is None: raise HTTPException(404, "Anchor not found.")
+        return _anchor_read(row)
+
+
+@router.post("/{asset_id}/versions/{version_id}/anchors/{anchor_id}/verify")
+def verify_anchor(investigation_id: UUID, asset_id: UUID, version_id: UUID, anchor_id: UUID, user: User = Depends(get_current_user)):
+    with SessionLocal() as session:
+        asset, version = _resolve_version(session, investigation_id, asset_id, version_id, user)
+        row = session.scalar(select(AssetProvenanceAnchor).where(AssetProvenanceAnchor.id == anchor_id,
+            AssetProvenanceAnchor.asset_version_id == version.id))
+        if row is None: raise HTTPException(404, "Anchor not found.")
+        snapshot = session.get(ResearchSnapshot, version.snapshot_id)
+        snapshot_valid = bool(snapshot and digest_json(snapshot.manifest) == snapshot.manifest_digest == version.snapshot_manifest_digest)
+        current_digest = digest_json(_manifest(session, asset, version))
+        digest_matches = current_digest == row.canonical_provenance_digest
+        artifact = session.get(ResearchArtifact, version.artifact_id)
+        bytes_valid, bytes_note = _content_digest(artifact) if artifact else (False, "Artifact record is missing.")
+        provider_error = None
+        if row.anchor_provider == "test/local":
+            try:
+                provider_result = get_anchor_provider().verify_anchor(row.canonical_provenance_digest,
+                    row.external_reference, row.verification_metadata)
+            except Exception as error:
+                provider_error = "timeout" if isinstance(error, TimeoutError) else "provider_failure"
+                provider_result = {"provider_reference_matches": False, "independent_external_verification": False,
+                    "verification_scope": "provider_error"}
+        else:
+            provider_result = {"provider_reference_matches": False, "independent_external_verification": False,
+                "verification_scope": "provider_unavailable"}
+        row.error_category = provider_error
+        row.anchor_status = "VERIFIED" if digest_matches and provider_result["provider_reference_matches"] else "FAILED"
+        session.commit()
+        return {"anchor_id": str(row.id), "asset_version_exists": True,
+            "asset_version_immutability": "version_record_present", "snapshot_integrity": "verified" if snapshot_valid else "failed",
+            "canonical_digest": "verified" if digest_matches else "mismatch", "anchored_digest": row.canonical_provenance_digest,
+            "current_digest": current_digest, "artifact_bytes": "verified" if bytes_valid is True else "unavailable" if bytes_valid is None else "mismatch",
+            "artifact_note": bytes_note, "external_anchor": "locally_reproducible" if provider_result["provider_reference_matches"] else "failed",
+            "provider_error_category": provider_error,
+            "independent_external_verification": provider_result["independent_external_verification"],
+            "anchor_status": row.anchor_status, "provider": row.anchor_provider,
+            "scientific_validity": "not_assessed", "legal_ownership": "not_established",
+            "licensing_authority": "not_established", "rights": "declared_separately"}
