@@ -11,23 +11,26 @@ The shared backend adapter supports OpenAI-compatible chat and embedding
 requests, model discovery, bounded retries, error categories, latency, usage,
 fallback metadata, and safe diagnostics.
 
-OmegaClaw routing is configurable. Production currently keeps ASI Cloud as the
-primary provider and Gemini as fallback. Groq is configured but excluded from
-the route while its `/models` endpoint returns HTTP 403 from the VPS:
-`Access denied. Please check your network settings.` Model discovery must
-succeed before Groq can be evaluated or enabled.
+Provider routing is configurable. The default order is Groq, ASI Cloud, then
+Gemini. Groq chat uses the OpenAI-compatible Cloudflare Worker transport; its
+model catalogue is not required for a configured chat completion. The router
+falls through to the next provider after bounded retries for transient errors
+and on rate-limit, permission, authentication, or missing-configuration
+failures. Invalid requests do not trigger provider fan-out.
 
 ```text
-OMEGACLAW_PROVIDER=asi
-OMEGACLAW_MODEL=asi1-mini
-OMEGACLAW_PROVIDER_ORDER=asi,gemini
+OMEGACLAW_PROVIDER_ORDER=groq,asi,gemini
+GROQ_API_BASE_URL=https://groq-proxy.gethsun09.workers.dev/openai/v1
+GROQ_API_KEY=<server-side secret>
+GROQ_MODEL=openai/gpt-oss-120b
 ```
 
-The configured order is deterministic and observable. When Groq is restored,
-it can be explicitly placed before Gemini after its catalog and structured
-planning contract are verified. A permission failure is classified separately
-from authentication failure and can fall through to the next configured
-provider.
+Set `OMEGACLAW_PROVIDER_ORDER` to override the order. The legacy
+`OMEGACLAW_PROVIDER` setting, when present, moves that provider to the front.
+The Worker is an external infrastructure dependency; its deployment and
+credentials are managed outside this repository. Keep credentials in the
+server environment only. Provider/model metadata records the provider that
+actually returned the completion.
 
 ## ASI Cloud configuration
 
@@ -37,17 +40,21 @@ them through the frontend:
 ```text
 ASI_CLOUD_BASE_URL=https://llm.c.singularitynet.io/v1
 ASI_CLOUD_API_KEY=<server-side secret>
-ASI_CLOUD_API_KEY1=<server-side secret>
-ASI_CLOUD_API_KEY2=<server-side secret>
+ASI_CLOUD_API_KEY_1=<server-side secret>
+ASI_CLOUD_API_KEY_2=<server-side secret>
+ASI_CLOUD_API_KEY_3=<server-side secret>
 ASI_CLOUD_CHAT_MODEL=asi1-mini
 ASI_CLOUD_EMBEDDING_MODEL=BAAI/bge-base-en-v1.5
 ASI_CLOUD_TIMEOUT_SECONDS=30
 ASI_CLOUD_RETRIES=2
 ```
 
-The three ASI credentials are one ordered provider pool. Credentials rotate
-only for authentication or rate-limit failures; invalid requests and missing
-models fail without needless credential rotation. Timeouts, network failures,
+The unsuffixed ASI key and optional `_1`, `_2`, and `_3` keys form one ordered
+provider pool. Empty entries are ignored and duplicate secret values are
+deduplicated. Historical `ASI_CLOUD_API_KEY1` and `ASI_CLOUD_API_KEY2`
+spellings remain accepted during migration. Credentials rotate only for
+authentication or rate-limit failures; invalid requests and missing models fail
+without needless credential rotation. Timeouts, network failures,
 and provider 5xx responses use bounded exponential retry. The adapter never
 logs authorization headers or secret values.
 

@@ -569,11 +569,17 @@ not implemented.
   publication/graph navigation, verified 2026-09-29 (see
   [M4 verification](#m4-verification--literature-intelligence-20-2026-09-29))
 
-### Next milestone
+### Roadmap
 
-- **M5 — Semantic Extraction Pilot:** versioned shadow-mode extraction,
-  candidate review, semantic similarity, and contradiction candidates while
-  retaining the deterministic baseline. M5 has not started.
+- **M1–M4: COMPLETE** — baseline, workflow hardening, knowledge graph, and
+  literature intelligence are verified.
+- **M5 — Semantic Extraction Pilot: COMPLETE / ACCEPTED** — source-grounded
+  candidates, deterministic validation, provenance, scoped graph projection,
+  and reproducibility are verified in the isolated CRISPR/sickle-cell workflow.
+  See [M5 acceptance evidence](docs/M5_SEMANTIC_EXTRACTION_PILOT.md).
+- **Option C — Scientific IP Assetization: NEXT**.
+- **M6 Domain Adapters: DEFERRED**.
+- **M7 Inference Observability: DEFERRED**.
 
 ### Later milestones — future work, not implemented
 
@@ -582,8 +588,8 @@ not implemented.
 - **M7 — Inference Observability:** expanded provider/model, latency, usage,
   retry, fallback, failure, health, and cost metadata with secret redaction
 
-ERN-AI remains a proposal for a possible optional prioritization adapter, not
-a current dependency or source of scientific truth. Public publishing,
+ERN-AI is not part of the core HelixMind roadmap; it could be considered only
+as an external integration/adapter. Public publishing,
 leaderboards, and public research sharing are outside the implemented scope;
 artifact downloads remain private and owner-scoped.
 

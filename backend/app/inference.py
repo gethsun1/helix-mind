@@ -94,7 +94,7 @@ class OpenAICompatibleProvider:
 
     def __init__(self, *, name: str, base_url: str, api_keys: list[tuple[str, str]], chat_model: str,
                  embedding_model: str, timeout_seconds: float = 30.0, retries: int = 2,
-                 client: httpx.Client | None = None) -> None:
+                 client: httpx.Client | None = None, local_address: str | None = None) -> None:
         self.name = name
         self.base_url = base_url.rstrip("/")
         self.api_keys = [(slot, key) for slot, key in api_keys if key]
@@ -102,7 +102,8 @@ class OpenAICompatibleProvider:
         self.embedding_model = embedding_model
         self.timeout_seconds = timeout_seconds
         self.retries = max(0, min(retries, 3))
-        self.client = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True)
+        transport = httpx.HTTPTransport(local_address=local_address) if local_address else None
+        self.client = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True, transport=transport)
         self._owns_client = client is None
 
     def close(self) -> None:
@@ -209,7 +210,7 @@ class InferenceRouter:
         failures: list[str] = []
         first_failure_reason: str | None = None
         fallback_categories = {
-            "authentication_failure", "permission_failure", "rate_limit", "model_unavailable",
+            "not_configured", "authentication_failure", "permission_failure", "rate_limit", "model_unavailable",
             "timeout", "connection_failure", "provider_server_error", "provider_failure", "empty_response",
         }
         for index, name in enumerate(self.order):
@@ -232,7 +233,20 @@ class InferenceRouter:
 
 
 def asi_cloud_from_environment(*, client: httpx.Client | None = None) -> OpenAICompatibleProvider:
-    keys = [("ASI_PRIMARY", os.getenv("ASI_CLOUD_API_KEY", "")), ("ASI_SECONDARY", os.getenv("ASI_CLOUD_API_KEY1", "")), ("ASI_TERTIARY", os.getenv("ASI_CLOUD_API_KEY2", ""))]
+    # Keep the original unsuffixed key first; accept both the documented
+    # underscore pool and historical KEY1/KEY2 aliases during migration.
+    candidates = [
+        ("ASI_KEY_0", os.getenv("ASI_CLOUD_API_KEY", "")),
+        ("ASI_KEY_1", os.getenv("ASI_CLOUD_API_KEY_1", "") or os.getenv("ASI_CLOUD_API_KEY1", "")),
+        ("ASI_KEY_2", os.getenv("ASI_CLOUD_API_KEY_2", "") or os.getenv("ASI_CLOUD_API_KEY2", "")),
+        ("ASI_KEY_3", os.getenv("ASI_CLOUD_API_KEY_3", "")),
+    ]
+    seen: set[str] = set()
+    keys = []
+    for slot, key in candidates:
+        if key and key not in seen:
+            keys.append((slot, key))
+            seen.add(key)
     return OpenAICompatibleProvider(
         name="asi",
         base_url=os.getenv("ASI_CLOUD_BASE_URL", "https://llm.c.singularitynet.io/v1"),
@@ -246,7 +260,8 @@ def asi_cloud_from_environment(*, client: httpx.Client | None = None) -> OpenAIC
 
 
 def _compatible_from_environment(name: str, *, key_env: str, base_env: str, model_env: str, default_base: str,
-                                  default_model: str, client: httpx.Client | None = None) -> OpenAICompatibleProvider:
+                                  default_model: str, client: httpx.Client | None = None,
+                                  local_address: str | None = None) -> OpenAICompatibleProvider:
     return OpenAICompatibleProvider(
         name=name,
         base_url=os.getenv(base_env, default_base),
@@ -256,6 +271,7 @@ def _compatible_from_environment(name: str, *, key_env: str, base_env: str, mode
         timeout_seconds=float(os.getenv("ASI_CLOUD_TIMEOUT_SECONDS", "30")),
         retries=int(os.getenv("ASI_CLOUD_RETRIES", "2")),
         client=client,
+        local_address=local_address,
     )
 
 
@@ -263,10 +279,10 @@ def router_from_environment(*, client: httpx.Client | None = None) -> InferenceR
     asi = asi_cloud_from_environment(client=client)
     providers: dict[str, InferenceProvider] = {
         "asi": asi,
-        "groq": _compatible_from_environment("groq", key_env="GROQ_API_KEY", base_env="GROQ_BASE_URL", model_env="GROQ_MODEL", default_base="https://api.groq.com/openai/v1", default_model="openai/gpt-oss-20b", client=client),
+        "groq": _compatible_from_environment("groq", key_env="GROQ_API_KEY", base_env="GROQ_API_BASE_URL", model_env="GROQ_MODEL", default_base="https://groq-proxy.gethsun09.workers.dev/openai/v1", default_model="openai/gpt-oss-120b", client=client, local_address="0.0.0.0" if client is None else None),
         "gemini": _compatible_from_environment("gemini", key_env="GEMINI_API_KEY", base_env="GEMINI_BASE_URL", model_env="GEMINI_MODEL", default_base="https://generativelanguage.googleapis.com/v1beta/openai/", default_model="gemini-3.5-flash", client=client),
     }
-    order = [item.strip().lower() for item in os.getenv("OMEGACLAW_PROVIDER_ORDER", "asi,gemini").split(",") if item.strip()]
+    order = [item.strip().lower() for item in os.getenv("OMEGACLAW_PROVIDER_ORDER", "groq,asi,gemini").split(",") if item.strip()]
     selected = os.getenv("OMEGACLAW_PROVIDER", "").strip().lower()
     if selected in providers:
         order = [selected, *(name for name in order if name != selected)]

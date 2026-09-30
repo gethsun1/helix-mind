@@ -18,6 +18,7 @@ from app.routes.literature_intelligence import router as literature_intelligence
 from app.routes.knowledge import router as knowledge_router
 from app.routes.reasoning import router as reasoning_router
 from app.routes.reproducibility import router as reproducibility_router
+from app.routes.semantic_extraction import router as semantic_extraction_router
 from app.queue import get_redis_connection
 from app.schemas import OAuthUserSync, UserProfileUpdate, UserRead
 from app.security import get_current_user, require_admin
@@ -47,6 +48,7 @@ app.include_router(literature_intelligence_router)
 app.include_router(knowledge_router)
 app.include_router(reasoning_router)
 app.include_router(reproducibility_router)
+app.include_router(semantic_extraction_router)
 
 
 class HealthResponse(BaseModel):

@@ -11,7 +11,28 @@ test('investigation literature links publications, evidence, graph, coverage and
 
   await page.goto(`/investigations/${investigationId}/literature`);
   await expect(page.getByRole('heading', { name: 'Literature landscape.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Semantic extraction pilot' })).toBeVisible();
+  await expect(page.getByText(/Candidate relations interpret persisted source evidence/)).toBeVisible();
   await expect(page.getByText(/Relevance is deterministic investigation linkage/)).toBeVisible();
+  const extractions = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/backend/api/v1/investigations/${id}/literature/semantic-extractions`);
+    return (await response.json()).extractions;
+  }, investigationId);
+  expect(extractions.length, 'live M5 workflow should have persisted candidates').toBeGreaterThan(0);
+  const semantic = extractions.find((item: { validationStatus: string }) => item.validationStatus === 'VALID') ?? extractions[0];
+  expect(semantic.validationStatus).toBe('VALID');
+  expect(semantic.graphRelationshipId).toBeTruthy();
+  const graphRelationships = await page.evaluate(async (id) => {
+    const response = await fetch(`/api/backend/api/v1/investigations/${id}/knowledge/relationships?limit=500`);
+    return response.json();
+  }, investigationId);
+  expect(graphRelationships.some((item: { id: string }) => item.id === semantic.graphRelationshipId), 'validated candidate relationship should be available in the knowledge graph').toBeTruthy();
+  const semanticCard = page.locator('.semantic-extraction-list details').filter({ hasText: semantic.subject }).first();
+  await semanticCard.locator('summary').click();
+  await expect(semanticCard.getByText(semantic.sourceSpan, { exact: false })).toBeVisible();
+  await expect(semanticCard.getByText(`${semantic.provider} / ${semantic.model}`, { exact: false })).toBeVisible();
+  await expect(semanticCard.getByText(/Validation: (VALID|REJECTED)/)).toBeVisible();
+  await expect(semanticCard.getByRole('link', { name: /Open source publication/ })).toBeVisible();
 
   const result = await page.evaluate(async (id) => {
     const response = await fetch(`/api/backend/api/v1/investigations/${id}/literature/intelligence`);
@@ -50,4 +71,18 @@ test('investigation literature links publications, evidence, graph, coverage and
     await page.getByRole('button', { name: 'Compare' }).click();
     await expect(page.getByText(/retained publications/)).toBeVisible();
   }
+
+  await page.route(`**/api/backend/api/v1/investigations/${investigationId}/literature/semantic-extractions`, async route => {
+    if (route.request().method() === 'GET') await route.fulfill({ json: { investigationId, extractions: [] } });
+    else {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      await route.fulfill({ status: 502, json: { detail: 'Semantic extraction provider failed; no candidate was promoted.' } });
+    }
+  });
+  await page.reload();
+  await expect(page.getByText('No semantic extraction candidates have been recorded for this investigation.')).toBeVisible();
+  const extractButton = page.getByRole('button', { name: 'Extract stored evidence' });
+  await extractButton.click();
+  await expect(page.getByRole('button', { name: 'Extracting…' })).toBeVisible();
+  await expect(page.getByRole('status').getByText(/no candidate was promoted/i)).toBeVisible();
 });
