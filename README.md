@@ -577,19 +577,35 @@ not implemented.
   candidates, deterministic validation, provenance, scoped graph projection,
   and reproducibility are verified in the isolated CRISPR/sickle-cell workflow.
   See [M5 acceptance evidence](docs/M5_SEMANTIC_EXTRACTION_PILOT.md).
-- **Option C — Scientific IP Assetization: NEXT**.
+- **C0 — Scientific IP Assetization discovery: COMPLETE** — architecture
+  reviewed; see the [C0 architecture and discovery package](docs/C0_SCIENTIFIC_IP_ASSETIZATION.md).
+- **C1 — Private Provenance & Rights Foundation: COMPLETE** — private,
+  owner-scoped asset versions, provenance verification, explicit rights
+  declarations, and audit events. This does not adjudicate legal ownership;
+  see the [C1 implementation](docs/C1_PRIVATE_PROVENANCE_RIGHTS_FOUNDATION.md).
+- **C2 — Verifiable Provenance Credentials / Anchors: FUTURE / OPTIONAL**.
+- **C3 — License Workflow / Rights Operations: FUTURE**.
+- **C4 — External Registry / Marketplace Adapter: FUTURE**.
+- **C5 — Commercial Operations: FUTURE**.
 - **M6 Domain Adapters: DEFERRED**.
 - **M7 Inference Observability: DEFERRED**.
 
-### Later milestones — future work, not implemented
+### Deferred and future milestones
+
+- **C2 — Verifiable Provenance Credentials / Anchors:** optional future work;
+  no chain or credential issuer is selected.
+- **C3 — License Workflow / Rights Operations:** future work requiring legal
+  and business decisions.
+- **C4 — External Registry / Marketplace Adapter:** future work requiring a
+  documented integration and rights model.
+- **C5 — Commercial Operations:** future work.
 
 - **M6 — Domain Adapters:** configurable domain support and validated domain
   fixtures, starting with the current biotechnology demonstration
 - **M7 — Inference Observability:** expanded provider/model, latency, usage,
   retry, fallback, failure, health, and cost metadata with secret redaction
 
-ERN-AI is not part of the core HelixMind roadmap; it could be considered only
-as an external integration/adapter. Public publishing,
+ERN-AI is outside the core HelixMind roadmap. Public publishing,
 leaderboards, and public research sharing are outside the implemented scope;
 artifact downloads remain private and owner-scoped.
 
