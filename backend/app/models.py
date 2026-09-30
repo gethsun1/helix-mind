@@ -150,6 +150,76 @@ class ResearchArtifact(UUIDPrimaryKey, Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ScientificAsset(UUIDPrimaryKey, Base):
+    """Private asset family; creator identity is not a rights assertion."""
+
+    __tablename__ = "scientific_assets"
+    __table_args__ = (Index("ix_scientific_assets_investigation_created", "investigation_id", "created_at"),)
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    asset_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="PRIVATE", server_default="PRIVATE")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT", server_default="DRAFT")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
+class AssetVersion(UUIDPrimaryKey, Base):
+    __tablename__ = "asset_versions"
+    __table_args__ = (UniqueConstraint("asset_id", "version_number", name="uq_asset_versions_number"), Index("ix_asset_versions_asset_created", "asset_id", "created_at"))
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("scientific_assets.id", ondelete="RESTRICT"), nullable=False, index=True)
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    parent_version_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("asset_versions.id", ondelete="RESTRICT"), nullable=True)
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="RESTRICT"), nullable=False, index=True)
+    snapshot_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("research_snapshots.id", ondelete="RESTRICT"), nullable=False)
+    artifact_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("research_artifacts.id", ondelete="RESTRICT"), nullable=False)
+    snapshot_manifest_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    artifact_content_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    schema_version: Mapped[str] = mapped_column(String(64), nullable=False, default="asset-manifest-1", server_default="asset-manifest-1")
+    canonicalization_version: Mapped[str] = mapped_column(String(64), nullable=False, default="asset-canonical-json-1", server_default="asset-canonical-json-1")
+    scientific_status: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT", server_default="DRAFT")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AssetRightsDeclaration(UUIDPrimaryKey, Base):
+    __tablename__ = "asset_rights_declarations"
+    __table_args__ = (Index("ix_asset_rights_version_created", "asset_version_id", "declared_at"),)
+
+    asset_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset_versions.id", ondelete="RESTRICT"), nullable=False, index=True)
+    declaration_actor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    declared_owner: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    contributors: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
+    ownership_basis: Mapped[str] = mapped_column(Text, nullable=False)
+    rights_scope: Mapped[str] = mapped_column(Text, nullable=False)
+    license_declaration: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    third_party_material: Mapped[list] = mapped_column(JSONB, nullable=False)
+    intended_use: Mapped[str] = mapped_column(String(64), nullable=False)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, default="PRIVATE", server_default="PRIVATE")
+    rights_status: Mapped[str] = mapped_column(String(24), nullable=False, default="DECLARED", server_default="DECLARED")
+    conflict_status: Mapped[str] = mapped_column(String(24), nullable=False, default="NONE_DECLARED", server_default="NONE_DECLARED")
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    declared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class AssetEvent(UUIDPrimaryKey, Base):
+    __tablename__ = "asset_events"
+    __table_args__ = (Index("ix_asset_events_asset_timestamp", "asset_id", "timestamp"),)
+
+    asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("scientific_assets.id", ondelete="RESTRICT"), nullable=False, index=True)
+    asset_version_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("asset_versions.id", ondelete="RESTRICT"), nullable=True)
+    actor_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    previous_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    new_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    event_metadata: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Paper(UUIDPrimaryKey, Base):
     __tablename__ = "papers"
     __table_args__ = (
