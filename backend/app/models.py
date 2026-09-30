@@ -223,6 +223,38 @@ class ResearchSearch(UUIDPrimaryKey, Base):
     reused: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
 
 
+class SemanticExtraction(UUIDPrimaryKey, Base):
+    """Investigation-scoped model interpretation kept separate from evidence."""
+
+    __tablename__ = "semantic_extractions"
+    __table_args__ = (
+        UniqueConstraint("investigation_id", "content_hash", name="uq_semantic_extractions_content"),
+        Index("ix_semantic_extractions_investigation_created", "investigation_id", "created_at"),
+        Index("ix_semantic_extractions_evidence", "evidence_id"),
+    )
+
+    investigation_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigations.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_runs.id", ondelete="RESTRICT"), nullable=False)
+    extraction_run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("investigation_runs.id", ondelete="RESTRICT"), nullable=False)
+    publication_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("papers.id", ondelete="RESTRICT"), nullable=False)
+    evidence_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("evidence.id", ondelete="RESTRICT"), nullable=False)
+    claim_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("claims.id", ondelete="SET NULL"), nullable=True)
+    candidate: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    source_span: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_locator: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    semantic_type: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    relation_type: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    extraction_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str] = mapped_column(String(128), nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    extraction_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    validation_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    validation_errors: Mapped[list | None] = mapped_column(JSONB, nullable=True)
+    graph_relationship_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("relationships.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
 class Entity(UUIDPrimaryKey, Base):
     __tablename__ = "entities"
     __table_args__ = (Index("ix_entities_type_normalized_name", "entity_type", "normalized_name", unique=True),)
