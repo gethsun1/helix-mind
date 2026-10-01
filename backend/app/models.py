@@ -220,6 +220,28 @@ class AssetEvent(UUIDPrimaryKey, Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
+class AssetProvenanceAnchor(UUIDPrimaryKey, Base):
+    """Append-only association of one asset version and canonical digest to a provider reference."""
+    __tablename__ = "asset_provenance_anchors"
+    __table_args__ = (UniqueConstraint("asset_version_id", "canonical_provenance_digest", "anchor_provider", name="uq_asset_anchor_version_digest_provider"), Index("ix_asset_anchor_asset_version", "scientific_asset_id", "asset_version_id"))
+
+    scientific_asset_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("scientific_assets.id", ondelete="RESTRICT"), nullable=False, index=True)
+    asset_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("asset_versions.id", ondelete="RESTRICT"), nullable=False, index=True)
+    canonical_provenance_digest: Mapped[str] = mapped_column(String(64), nullable=False)
+    anchor_provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    anchor_type: Mapped[str] = mapped_column(String(64), nullable=False)
+    external_reference: Mapped[str] = mapped_column(String(255), nullable=False)
+    anchor_status: Mapped[str] = mapped_column(String(24), nullable=False)
+    requested_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    anchored_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    verification_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    provider_metadata: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), nullable=False)
+    error_category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+
 class Paper(UUIDPrimaryKey, Base):
     __tablename__ = "papers"
     __table_args__ = (

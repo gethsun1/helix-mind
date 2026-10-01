@@ -1,0 +1,84 @@
+# C2B — Production Provenance Anchor Strategy
+
+**Status: Strategy complete; production provider unresolved.** This review does not configure a provider or make an external anchor. C2 remains frozen: the existing `AssetVersion`, C1 manifest, SHA-256 canonical digest, private routes, and `ProvenanceAnchorProvider` boundary are unchanged.
+
+## HelixMind requirements
+
+Any production provider must bind one immutable `AssetVersion` to the digest computed by C1 `canonical_json` / `digest_json`. The exact version and digest must be reproducible; a later version, correction, dispute, retraction, or supersession must not erase a historical anchor. An outage or accepted request must never be reported as externally verified. Rights declarations and scientific assessments remain separate.
+
+The minimum desired guarantee is independently verifiable evidence that the digest existed by a provider-defined time or log position. The provider should receive only a digest or a commitment derived from it, with no research text, identity, rights documents, or private metadata. Verification should work from a portable proof/reference and the digest without relying on HelixMind's database. If the selected mechanism proves less (for example, merely a service's signed assertion), the response and UI must say exactly that.
+
+The C2 implementation currently stores the exact C1 digest, provider name/type, reference, status, timestamps, and JSON provider metadata. Its create operation is synchronous; it has no `PENDING` lifecycle, proof-blob field, provider/environment configuration, retry policy, or external verifier abstraction. This is important for provider selection: a real asynchronous mechanism needs an additive integration design and safe proof persistence before it can be enabled.
+
+## Candidates investigated
+
+| Provider / mechanism | Primitive; public verification and time | Permanence, privacy, cost | Operations, credentials, failure and verification dependency | HelixMind fit / marketplace compatibility |
+| --- | --- | --- | --- | --- |
+| **OpenTimestamps (OTS), Bitcoin calendars** | Portable OTS proof composes hashes into a Bitcoin transaction/Merkle commitment; after confirmation, anyone with the digest and proof can verify against Bitcoin. Bitcoin block time gives an approximate existence bound, not a precise trusted wall-clock time. Calendar submissions may initially be pending. | Public chain commitment is durable subject to Bitcoin and hash assumptions. Calendar submissions expose a commitment, not the underlying content; public commitments can still be correlated or guessed if the input is predictable. Default calendars are documented as free/donation-supported; Bitcoin anchoring cost is shared by aggregation and is not a per-record fixed fee. | No account, API key, wallet, or HelixMind production signing key is required when using public calendars. Calendar availability and confirmation delay are failure modes. Verification can use OTS tooling and Bitcoin data; full independent verification favors a Bitcoin Core node. Proof bytes must be retained/exported. Python, JavaScript, Java, and Rust client implementations are linked by the project; calendar REST protocol may change. | Strong candidate for time/existence and independent verification, with no ownership semantics. But current C2 needs pending state, proof storage, and upgrade/verification handling. Calendar free-service availability, proof retention/recovery, production support expectations, and exact deployment policy are unresolved. BASIX acceptance is undocumented. |
+| **RFC 3161 Time-Stamp Authority (TSA)** | TSA signs a timestamp token over a message imprint (digest). A verifier checks token signature, imprint, TSA certificate chain and policy. Establishes the TSA's assertion of time under its trust and clock policy; not a public append-only log. | Only imprint and protocol metadata need be submitted. Token can be retained and verified later, but trust depends on TSA certificate/policy validation and archival material. Commercial pricing depends on the chosen TSA/service; no universal price. | Usually HTTPS/API or RFC protocol with provider-specific credentials/account; key custody resides with TSA, not HelixMind. Rate limits, SLA, trust roots, revocation/long-term validation, outages, and renewal/archive are provider-specific. Verification needs the token and TSA trust material. | Narrow, mature timestamp primitive and low chain complexity. Less public transparency and less provider-independent permanence than a public ledger. Could suit institutional time attestation if HelixMind or a future partner selects an accepted TSA. BASIX contract unresolved. |
+| **Sigstore / Rekor transparency log** | Public append-only transparency log stores signed metadata; bundles can include inclusion proofs, signed checkpoints/entry timestamps, and signature/certificate material. Independent bundle verification is supported. | Log entries are public and persistent, so their complete entry format must be minimized. Public Sigstore workflow avoids long-lived signing keys through short-lived identity-bound certificates, but publishes signing identity/metadata. Public service use is documented; no per-entry charge is documented in the reviewed material. | REST API, CLI and ecosystem clients exist. Sigstore keyless flow requires suitable identity/OIDC; signed attestations need an issuer identity and policy. Service availability and long-term trust-root/log monitoring remain dependencies. Verifier validates signature, expected identity, certificate chain, and inclusion proof. | Technically capable but optimized for software signing/provenance; adds identity-signing and public metadata semantics beyond a timestamp. Could be suitable if HelixMind needs an attributable issuer attestation, not merely existence. BASIX compatibility unresolved. |
+| **Direct blockchain transaction / smart contract** | Transaction can commit a digest or Merkle root; public chain explorers/nodes can verify inclusion and approximate block time. Guarantees depend on chain consensus, finality, and contract/network. | Public and generally durable while the chain persists; digest correlation and permanent disclosure apply. Transaction fees vary by chain/load. | Requires chain, RPC/provider choice, transaction construction, monitoring, and generally a wallet/private signing key; smart contract is optional for raw commitments. Wallet custody, funding, recovery, fee handling, reorgs, and chain/RPC outages are material responsibilities. Independent verification can use chain data if chain and commitment format are known. | Can provide a public anchor but adds operational and key risks not needed for the current narrow requirement. No chain or wallet governance exists in HelixMind. BASIX's mention of on-chain issuance does not identify a compatible chain/API. |
+| **Content-addressed storage (for example IPFS CID)** | CID identifies content by its content hash. A CID alone shows content identity, not when it existed or that it will remain available. | Publicly retrievable content may reveal data; pinning affects availability and may cost money. Only a digest/CID can be published, but content must be stored somewhere to resolve it. | Pinning service or self-hosted nodes, account/API credentials depending on operator, replication/retention monitoring. Verification recalculates content CID; availability depends on pins/network. | Useful for distributing proof bundles, not a sufficient external timestamp anchor by itself. No integration contract with BASIX documented. |
+| **Signed attestation by HelixMind or institution** | Detached signature over digest and structured claim can prove that a key signed the statement. Without trusted timestamping/logging, it does not independently prove when the signature was created or prevent backdating. | Can be private or selectively shared; signed statement contains only chosen fields. Persistence and revocation depend on issuer/registry policy. | Requires issuer signing key, custody, rotation, revocation and recovery, plus a verifier trust policy. No external API necessarily required. Verification is cryptographic but depends on trusted public-key distribution and issuer authority. | Useful as a future institutional attribution layer; does not meet external time/existence by itself. Could complement a timestamp provider after governance exists. |
+
+Evidence for OTS comes from [OpenTimestamps protocol overview](https://opentimestamps.org/) and its [official client documentation](https://github.com/opentimestamps/opentimestamps-client), which describe Bitcoin-backed proofs, calendar submission, confirmation delay, verification and client availability. RFC 3161 semantics are defined by [IETF RFC 3161](https://datatracker.ietf.org/doc/html/rfc3161). Sigstore's [overview](https://docs.sigstore.dev/) and [Rekor documentation](https://docs.sigstore.dev/logging/overview/) describe signed artifacts, append-only log storage and verification. The blockchain and content-addressed rows describe the relevant cryptographic primitives; those are mechanism categories, not selected vendors.
+
+## Decision
+
+**No production provider is selected or integrated in C2B.** OTS is the leading candidate for a future isolated pilot because it offers portable proofs, no HelixMind wallet or signing key, and independent verification against a public chain while anchoring a commitment rather than research content. That makes it technically promising, not approved for production.
+
+The current evidence does not settle whether HelixMind should operate a donation-supported calendar workflow without an SLA, how proof files will be durably stored and recovered, what verification level is required in routine operation (remote calendar assistance versus a local Bitcoin node), or how asynchronous `PENDING` to confirmed behavior maps into the existing API/model. No eligible non-production AssetVersion was used for a real smoke test. Implementing a provider before settling those choices would risk reporting a locally stored/pending reference as verified, or losing the portable evidence required for future independent checks.
+
+Next decision needed for a provider pilot: choose an explicit operating policy for OTS (or a named TSA/log service), proof retention and export, confirmation/verification threshold, acceptable service availability, and whether any public anchor is permitted for each asset. If OTS is chosen, extend only the existing provider boundary, persist the proof safely as provider evidence, add explicit environment/status semantics, and keep external calls mocked in normal tests. Do not silently change C2's existing `test/local` selection.
+
+## BASIX findings
+
+### Documented public material
+
+BASIX's [public home page](https://www.basix.market/) describes an IP marketplace, on-chain issuance and a DICE co-ownership model. Its [curriculum page](https://www.basix.market/curriculum) mentions on-chain credentials and signed credential NFTs. Its [operations page](https://www.basix.market/ops) says PII remains in the LMS and hashes/IDs go on chain.
+
+### Inferred compatibility
+
+These statements suggest BASIX has or is building some on-chain credential and IP workflows. A digest-only HelixMind record might be adaptable if BASIX accepts that format and chain, but that is an inference only. Compatibility does not follow from BASIX using blockchain or credentials.
+
+### Unresolved
+
+The reviewed public pages do not establish a developer API, arbitrary digest submission contract, supported chain for an external integration, accepted proof format, verification endpoint, pricing, partner authentication model, or a provenance-anchor service. No BASIX integration is justified in C2B; obtain an explicit technical integration specification from BASIX before C4 work.
+
+## External data and privacy
+
+No provider is active, so **nothing leaves HelixMind in C2B**. For any future provider, the intended external payload is one cryptographic commitment sufficient to bind the C1 canonical digest, plus protocol-required data. No research artifact, publication/evidence text, identity, rights document, or private metadata should be sent. OTS may expose the submitted commitment to calendars and ultimately a public Bitcoin commitment; anyone obtaining the digest/proof can test a candidate manifest against it. Revisions, retractions, or rights disputes cannot erase a public anchor; HelixMind must append separate current-state events and preserve historical meaning.
+
+## Operations, configuration, and verification boundary
+
+There are currently no provider credentials, wallet, provider environment selector, provider endpoint configuration, migration, route change, retry policy, monitoring integration, or test/staging/production split for external anchoring. The only provider is hard-coded `test/local`, whose deterministic reference is expressly not external evidence. Production provider credentials, if later required, must use environment/secret configuration and never be saved in anchor metadata, database rows, API output, logs, or exceptions. Blockchain options additionally require explicit wallet ownership, key custody, signing, recovery, and funding policies; none are approved here.
+
+A future successful API request must first be `REQUESTED` or `PENDING` where the mechanism is asynchronous. It may be `ANCHORED` only once the provider supplies a reference/proof; it may be `VERIFIED` only after cryptographic/external proof verification and local digest recomputation. Provider unavailability, rate limits, timeout, invalid response, proof mismatch, and digest mismatch must remain explicit failures. This review made no external request, test anchor, credential change, or production change.
+
+The external mechanism can establish only that a commitment corresponding to the reconstructed canonical digest was recorded/signed under the chosen provider's semantics. It cannot establish scientific validity, authorship, legal ownership, licensing authority, rights status, regulatory approval, efficacy, or commercial validation. C3 rights/licensing operations must continue to consume rights declarations and legal review as separate records; an anchor is not a license.
+
+## Remaining questions and C3 implications
+
+- Which provider's time, identity, availability and verification policy will HelixMind/institutional partners accept?
+- Is public permanence acceptable for every anchorable manifest, considering guessing and correlation risks?
+- What durable proof retention/export strategy, retention owner and recovery procedure will be used?
+- What is the independent verification target: portable offline proof, public verifier, local full node, or recognized TSA validation?
+- What availability/SLA, rate limit, retry/backoff, monitoring and recurring cost are acceptable?
+- What concrete BASIX API, chain, proof format and governance will be documented?
+- How should providers and non-production credentials/environments be selected and prevented from crossing into production?
+
+C3 remains rights/licensing operations and is not implemented here. It will need to keep declared rights and legal review separate from anchor status, record disputes/retractions/supersession without rewriting anchor history, and define who may approve public anchoring. No marketplace, NFT, token, wallet-ownership, licensing or commercial behavior is added.
+
+## Repository review and verification
+
+Reviewed C0/C1/C2 documentation; the `ScientificAsset`, `AssetVersion`, rights/event, snapshot, artifact and anchor models; the provider abstraction and local implementation; C2 routes and structured verification; C2 migration and focused tests; configuration/authentication; owner/investigation scoping; and README roadmap. The implementation confirms the documentation's current boundary: authenticated investigation-scoped APIs, `test/local` only, no public verification route, and no production provider configuration.
+
+This strategy change has no application code, schema, API or frontend effect. Verification used the documented isolated PostgreSQL test database `helixmind_test` on port 5433 as OS/database user `helixmind`; the database began at revision `9a0b1c2d3e4f` and was upgraded to the existing C2 head `c2a1b2c3d4e5`. No production database was used or migrated.
+
+- Full backend suite: **86 passed**.
+- Focused C1/C2 asset and anchor tests: **11 passed**.
+- Frontend production build: **passed**.
+- Alembic current revision: **`c2a1b2c3d4e5` (head)**.
+- `git diff --check`: **passed**; changed-file credential-pattern scan: **0 potential hits** (no dedicated repository secret scanner is configured).
+
+No external provider was called and no anchor was created. No production service or secret was changed. No commit or push was made.
