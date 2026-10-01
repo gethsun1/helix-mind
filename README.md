@@ -46,6 +46,8 @@ Human Research Decision
 Immutable Snapshot
         ↓
 Reproducible Research Artifact
+        ↓
+Private Scientific Asset / Provenance Record
 ```
 
 1. A researcher creates an owner-scoped Investigation and supplies the research question and context.
@@ -54,6 +56,7 @@ Reproducible Research Artifact
 4. Deterministic extraction and validated semantic candidates contribute to the investigation knowledge graph. Structured reasoning records hypotheses, contradictions, gaps, and traces from stored evidence.
 5. Researchers choose whether to save explicit Human Research Decisions. Eligible memory is scoped to the owner and Investigation and recorded when applied to a later run.
 6. Completed runs produce immutable SHA-256 snapshots. Deterministic comparisons and snapshot-bound artifacts preserve the research state used to create each output.
+7. From an Investigation, reviewers can open Literature landscape for semantic-extraction candidates, and Scientific IP / Provenance for private asset versions bound to completed snapshots and artifacts. Local/test anchor references are explicitly not external proof.
 
 ## Why it is different
 
@@ -79,7 +82,7 @@ Planning is bounded, attributed, and observable. The agent supports a workflow; 
 
 ## Live research demonstration
 
-The demonstration follows a CRISPR-Cas9 / sickle-cell research question through planning, PubMed and Europe PMC retrieval, source-linked evidence, graph and reasoning outputs, semantic extraction, researcher memory, and reproducible snapshots. It exercises the infrastructure with a real literature workflow rather than presenting the scientific domain as the product category.
+The demonstration follows a CRISPR-Cas9 / sickle-cell research question through planning, PubMed and Europe PMC retrieval, source-linked evidence, graph and reasoning outputs, semantic extraction, researcher memory, reproducible snapshots, and the contextual Scientific Asset / Provenance screen at `/investigations/{id}/assets`. It exercises the infrastructure with a real literature workflow rather than presenting the scientific domain as the product category.
 
 At the accepted M5 semantic-extraction checkpoint, the isolated workflow contained 20 canonical publications and 162 source-linked evidence records. A bounded semantic-extraction run processed 20 evidence rows from three publications; one candidate passed deterministic validation and was projected as a source-linked relationship. The source snapshot remained valid and unchanged, and the post-projection snapshot digest validated. These are checkpoint results, not guarantees about future provider availability.
 

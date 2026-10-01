@@ -66,6 +66,17 @@ Research question
 7. A completed run is captured in a SHA-256 immutable snapshot. Deterministic comparison reports record changes between two snapshots. Markdown, structured report, and Obsidian-compatible exports read the frozen manifest.
 8. An optional private asset version can bind a completed artifact and snapshot digest with rights declarations and audit events. This record does not establish legal title or provide external public proof.
 
+### Frontend demonstration paths
+
+The authenticated research workspace exposes these investigation-scoped records through contextual routes:
+
+- `/investigations/{id}` — Investigation overview, evidence explorer, reasoning, Human Research Memory, run lineage, snapshots, and generated artifacts.
+- `/investigations/{id}/literature` — literature contribution, immutable literature comparison, bounded semantic-extraction candidates, validation and rejection reasons, source evidence spans, provider/model metadata, and graph projection links.
+- `/knowledge?investigationId={id}` — graph records, evidence provenance, and snapshot graph comparison.
+- `/investigations/{id}/assets` — private ScientificAsset versions, snapshot/artifact bindings, canonical digests, rights declarations, integrity checks, local/test anchor references, and audit events.
+
+Asset creation uses an existing completed snapshot and artifact. Rights information is an explicit researcher declaration. The deterministic `test/local` reference can be inspected and verified locally; it is not independent or public proof. Scientific validity and legal ownership remain not assessed.
+
 ## 7. Architecture
 
 ```text
