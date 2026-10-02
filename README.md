@@ -4,6 +4,17 @@
 
 <h1 align="center">HelixMind</h1>
 
+<p align="center">
+  <a href="LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/License-MIT-yellow.svg"></a>
+  <a href="https://helix-mind-green.vercel.app/"><img alt="Deployed on Vercel" src="https://img.shields.io/badge/Deployment-Vercel-black?logo=vercel&logoColor=white"></a>
+  <a href="https://github.com/gethsun1/helix-mind/actions"><img alt="CI status" src="https://img.shields.io/badge/CI-not_configured-lightgrey?logo=githubactions&logoColor=white"></a>
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-14-black?logo=nextdotjs">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white">
+  <img alt="FastAPI" src="https://img.shields.io/badge/FastAPI-API-009688?logo=fastapi&logoColor=white">
+  <img alt="Python" src="https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white">
+  <img alt="PostgreSQL" src="https://img.shields.io/badge/PostgreSQL-database-4169E1?logo=postgresql&logoColor=white">
+</p>
+
 <p align="center"><strong>An auditable AI infrastructure layer for Research &amp; Innovation.</strong></p>
 
 <p align="center">
@@ -14,6 +25,13 @@
 </p>
 
 > HelixMind turns AI-assisted research into a traceable workflow where literature, evidence, reasoning, researcher decisions, and reproducible outputs remain connected.
+
+## Key features
+
+- **Source-grounded evidence:** Research outputs retain links to publications from PubMed and Europe PMC and to the available source text. Model-generated plans are not treated as evidence.
+- **Immutable provenance:** Completed runs freeze into SHA-256 snapshots, with parent/child run lineage and snapshot-bound artifacts.
+- **Deterministic reasoning graph:** Source-linked records are organized in an Investigation-scoped knowledge graph for inspectable hypotheses, contradictions, and knowledge gaps.
+- **Human-in-the-loop decisions:** Researchers explicitly save scoped decisions as persistent memory; saved choices and their use in later runs remain inspectable.
 
 
 
@@ -106,6 +124,13 @@ flowchart TD
 
 See [Architecture and system boundaries](docs/HELIXMIND_PROJECT_DOCUMENTATION.md#7-architecture) for the detailed view.
 
+### Architecture and data guides
+
+- [Data model and snapshot protocol](backend/app/models.py) · [Research artifacts and snapshot-bound exports](docs/RESEARCH_ARTIFACTS.md) · [Snapshot protocol details](docs/HELIXMIND_PROJECT_DOCUMENTATION.md#14-reproducibility-and-snapshots)
+- [OmegaClaw planner and runtime boundaries](docs/OMEGACLAW_RUNTIME.md)
+- [Citation, literature, and evidence provenance](docs/LITERATURE_PIPELINE.md) · [Knowledge and evidence graph](docs/KNOWLEDGE_LAYER.md)
+- [Deployment and service boundaries](docs/INFRASTRUCTURE.md)
+
 ## Core capabilities
 
 - Authenticated, owner-scoped research Investigations
@@ -156,14 +181,48 @@ Next.js / TypeScript · FastAPI / Python · PostgreSQL · Redis / RQ · OmegaCla
 
 ## Quick start
 
-Requirements: Node.js 20+, Python 3.12+, PostgreSQL, and Redis. Configure local environment values using [`backend/.env.example`](backend/.env.example); use dedicated development services.
+Requirements: Node.js 20+, Python 3.12+, PostgreSQL, and Redis. Full local login also requires a Google OAuth client configured for `http://localhost:3000/api/auth/callback/google`.
 
 ```bash
+git clone https://github.com/gethsun1/helix-mind.git
+cd helix-mind
 npm install
+python3 -m venv .venv
+.venv/bin/pip install -r backend/requirements.txt
+cp backend/.env.example backend/.env
+```
+
+Edit the local-only `backend/.env` for your development PostgreSQL and Redis URLs, local CORS origin (`http://localhost:3000`), artifact directory, and long random authentication secrets. Keep `HELIXMIND_AUTH_SECRET` the same as `NEXTAUTH_SECRET`; set `HELIXMIND_AUTH_SYNC_SECRET` to the same value as the frontend's `HELIXMIND_AUTH_SYNC_SECRET`. PubMed and Europe PMC endpoints are configured by the application; an NCBI email/API key is optional.
+
+Create a root `.env.local` for the frontend (Google credentials are available from your OAuth client):
+
+```dotenv
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=use-the-same-value-as-HELIXMIND_AUTH_SECRET
+GOOGLE_CLIENT_ID=your-local-google-oauth-client-id
+GOOGLE_CLIENT_SECRET=your-local-google-oauth-client-secret
+HELIXMIND_BACKEND_URL=http://127.0.0.1:8401
+HELIXMIND_AUTH_SYNC_SECRET=use-the-same-value-as-backend-HELIXMIND_AUTH_SYNC_SECRET
+```
+
+Run the following in separate terminals after PostgreSQL and Redis are available. The database must be a dedicated local development database.
+
+```bash
+cd backend
+PYTHONPATH=. ../.venv/bin/alembic -c alembic.ini upgrade head
+PYTHONPATH=. ../.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8401
+```
+
+```bash
+cd backend
+PYTHONPATH=. ../.venv/bin/rq worker --url redis://127.0.0.1:6381/0 helixmind-research
+```
+
+```bash
 npm run dev
 ```
 
-For the API, worker, database migrations, and provider configuration, follow the [local setup guide](docs/HELIXMIND_PROJECT_DOCUMENTATION.md#quick-start-and-operation-notes). Do not point development migrations at production resources.
+The frontend and API start locally, but sign-in depends on valid Google OAuth credentials and the backend's PostgreSQL/Redis configuration. See [Contributing setup](CONTRIBUTING.md#architecture-and-setup) and the [local operation notes](docs/HELIXMIND_PROJECT_DOCUMENTATION.md#quick-start-and-operation-notes) for details. Never point development migrations at production resources.
 
 ## Repository structure
 
