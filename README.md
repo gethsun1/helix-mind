@@ -15,8 +15,7 @@
 
 > HelixMind turns AI-assisted research into a traceable workflow where literature, evidence, reasoning, researcher decisions, and reproducible outputs remain connected.
 
-**Track:** Track 4 (Advanced) — Build the AI Infrastructure Layer<br>
-**Repository:** [gethsun1/helix-mind](https://github.com/gethsun1/helix-mind) · **Status:** Hackathon submission; active feature freeze · **License:** MIT
+
 
 ## What HelixMind does
 
