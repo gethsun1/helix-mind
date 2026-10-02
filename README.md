@@ -100,7 +100,7 @@ flowchart TD
     G --> H[SHA-256 Immutable Snapshot]
     H --> I[Reproducible Artifact / Provenance Record]
 ```
-    
+  
 
 **Representation boundary:** PostgreSQL is canonical. HelixMind projects structured knowledge into MeTTa and validates that representation with PeTTa. This is not a claim that MeTTa or PeTTa runs the production evidence-reasoning pipeline. A separate fixed NAL/PLN proof is a technical demonstration, not the literature reasoning engine.
 
