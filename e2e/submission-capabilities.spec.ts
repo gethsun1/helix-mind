@@ -51,6 +51,14 @@ test('submission journey exposes real investigation, evidence, memory, reproduci
     return Promise.all(paths.map(async path => { const response = await fetch(path); return { path, status: response.status, body: response.ok ? await response.json() : null }; }));
   }, investigationId);
   expect(api.map(result => result.status), JSON.stringify(api.map(result => `${result.path}: ${result.status}`))).toEqual(api.map(() => 200));
+  const audit = page.locator('details.audit-disclosure');
+  const expectedEventCount = api.find(result => result.path === `/api/backend/api/v1/investigations/${investigationId}`)?.body.events.length ?? 0;
+  await expect(audit).not.toHaveAttribute('open', '');
+  await audit.locator('summary').click();
+  await expect(audit).toHaveAttribute('open', '');
+  await expect(audit.locator('.timeline-item')).toHaveCount(expectedEventCount);
+  await audit.locator('summary').click();
+  await expect(audit).not.toHaveAttribute('open', '');
   const semantic = api.find(result => result.path.endsWith('/semantic-extractions'))?.body.extractions;
   expect(semantic.length).toBeGreaterThan(0);
   expect(semantic.some((candidate: { validationStatus: string; graphRelationshipId: string | null }) => candidate.validationStatus === 'VALID' && candidate.graphRelationshipId)).toBeTruthy();
