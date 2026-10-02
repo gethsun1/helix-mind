@@ -2,16 +2,11 @@
   <img src="./public/helixmind_github_coverII.jpg" alt="HelixMind scientific intelligence workstation" width="100%" />
 </p>
 
-<h1 align="center">HelixMind</h1>
+# HelixMind
 
-<p align="center"><strong>An auditable AI infrastructure layer for Research &amp; Innovation.</strong></p>
+> **HelixMind** is an auditable AI infrastructure layer designed for scientific research and innovation. It bridges non-deterministic LLM reasoning with strict, reproducible research standards by turning literature search and AI analysis into verifiable, SHA-256 snapshot-bound artifacts.
 
-<p align="center">
-  <a href="https://helix-mind-green.vercel.app/">Live demo</a> ·
-  <a href="docs/HELIXMIND_PROJECT_DOCUMENTATION.md">Project documentation</a> ·
-  <a href="CONTRIBUTING.md">Contributing</a> ·
-  <a href="LICENSE">MIT License</a>
-</p>
+[Live demo](https://helix-mind-eight.vercel.app/) · [Project documentation](docs/HELIXMIND_PROJECT_DOCUMENTATION.md) · [Contributing](CONTRIBUTING.md) · [MIT License](LICENSE)
 
 > HelixMind turns AI-assisted research into a traceable workflow where literature, evidence, reasoning, researcher decisions, and reproducible outputs remain connected.
 
