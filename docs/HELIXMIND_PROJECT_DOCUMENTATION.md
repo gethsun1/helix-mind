@@ -8,7 +8,7 @@ HelixMind is an auditable AI infrastructure layer for Research & Innovation. It 
 
 The implementation combines a Next.js research workspace, FastAPI services, PostgreSQL canonical state, and Redis/RQ background execution. OmegaClaw is used for constrained research planning. PubMed and Europe PMC are literature sources. Deterministic extraction and reasoning operate on persisted source records; semantic extraction is a bounded model-assisted pilot whose candidates are validated before graph projection. MeTTa is a structured knowledge projection, and PeTTa validates the representation.
 
-The CRISPR-Cas9 / sickle-cell workflow exercises these infrastructure boundaries using a real literature domain. HelixMind is not a clinical system. Scientific IP provenance is a secondary foundation: private assets can bind rights declarations and provenance records to immutable research artifacts, while production external anchoring, marketplace operation, licensing execution, and tokenization remain future work.
+The sample CRISPR-Cas9 / sickle-cell workflow run exercises these infrastructure boundaries using a real literature domain. HelixMind is not a clinical system. Scientific IP provenance is a secondary foundation: private assets can bind rights declarations and provenance records to immutable research artifacts, while production external anchoring, marketplace operation, licensing execution, and tokenization remain future work.
 
 ## 2. Problem
 
