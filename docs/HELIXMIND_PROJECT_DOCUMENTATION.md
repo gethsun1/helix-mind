@@ -1,9 +1,6 @@
 # HelixMind Project Documentation
 
-**Submission profile:** Track 4 (Advanced) — Build the AI Infrastructure Layer<br>
-**Product focus:** AI infrastructure for auditable, persistent, reproducible research<br>
-**Demonstration:** CRISPR-Cas9 / sickle-cell literature workflow<br>
-**Status:** Feature-frozen submission build; no external production provenance provider configured
+---
 
 ## 1. Executive summary
 
