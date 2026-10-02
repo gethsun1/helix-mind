@@ -66,6 +66,12 @@ def test_private_asset_workflow_records_rights_and_verifies_integrity(tmp_path, 
         assert asset["created_by_user_id"] == str(_owner_id())
         assert "declared_owner" not in asset
         assert version["eligibility"]["eligible"] is False
+        listed = client.get(f"/api/v1/investigations/{inv}/assets", headers=headers)
+        assert listed.status_code == 200
+        listed_asset = next(item for item in listed.json() if item["id"] == asset["id"])
+        assert listed_asset["versions"][0]["id"] == version["id"]
+        assert listed_asset["versions"][0]["snapshot_id"] == str(snapshot)
+        assert listed_asset["versions"][0]["artifact_id"] == str(artifact)
         declared = client.post(f"/api/v1/investigations/{inv}/assets/{asset['id']}/rights-declarations", headers=headers, json={
             "declared_owner": {"type": "person", "display_name": "Declared Researcher"}, "ownership_basis": "Human assertion",
             "rights_scope": "This artifact version", "third_party_material": [{"status": "reviewed"}], "intended_use": "INTERNAL_RESEARCH"})

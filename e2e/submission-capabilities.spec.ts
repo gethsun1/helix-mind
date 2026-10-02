@@ -5,6 +5,7 @@ const ownerId = process.env.HELIXMIND_E2E_OWNER_ID;
 const investigationId = process.env.HELIXMIND_E2E_INVESTIGATION_ID;
 
 test('submission journey exposes real investigation, evidence, memory, reproducibility and asset states', async ({ page, context }) => {
+  test.setTimeout(90_000);
   test.skip(!ownerId || !investigationId, 'Use the isolated HelixMind test database owner and CRISPR investigation IDs.');
   const token = await encodeAuthToken({ token: { sub: ownerId, role: 'USER' } });
   await context.addCookies([{ name: 'next-auth.session-token', value: token, domain: '127.0.0.1', path: '/', httpOnly: true, sameSite: 'Lax' }]);
@@ -20,10 +21,18 @@ test('submission journey exposes real investigation, evidence, memory, reproduci
   await page.goto(`/investigations/${investigationId}`);
   await expect(page.getByRole('heading', { name: 'CRISPR-Cas9 and sickle-cell disease literature intelligence verification' })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Persistent Research Memory' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Run lineage' })).toBeVisible();
+  await expect(page.getByText(/^Run lineage ·/)).toBeVisible();
+  await page.getByText(/^Run lineage ·/).click();
   await expect(page.getByRole('heading', { name: 'Snapshot and research exports' })).toBeVisible();
+  await expect(page.getByText(/Scientific reasoning and evidence explorer ·/)).toBeVisible();
+  await page.getByText(/Scientific reasoning and evidence explorer ·/).click();
   await expect(page.getByRole('heading', { name: 'Why the evidence points where it does.' })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Research asset record' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Investigation research tools' }).getByRole('link', { name: /Scientific IP/ })).toBeVisible();
+  await expect(page.getByRole('region', { name: 'Latest research state' })).toBeVisible();
+  await expect(page.getByText(/private asset recorded|private assets ·/i)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
+  await expect(page.getByRole('navigation', { name: 'Investigation research tools' }).getByRole('link', { name: /Literature/ })).toBeVisible();
 
   const api = await page.evaluate(async id => {
     const paths = [
@@ -61,8 +70,21 @@ test('submission journey exposes real investigation, evidence, memory, reproduci
   await page.goto('/hypotheses');
   await expect(page.getByRole('heading', { name: 'Hypothesis lab.' })).toBeVisible();
 
+  const assetConsoleErrors: string[] = [];
+  page.on('console', message => { if (message.type() === 'error' && /\/api\/backend\/.*assets|scientific asset/i.test(message.text())) assetConsoleErrors.push(message.text()); });
+  page.on('pageerror', error => assetConsoleErrors.push(error.message));
+  const assetResponsePromise = page.waitForResponse(response => response.url().endsWith(`/api/backend/api/v1/investigations/${investigationId}/assets`) && response.request().method() === 'GET');
   await page.goto(`/investigations/${investigationId}/assets`);
+  const assetResponse = await assetResponsePromise;
+  const assetBody = await assetResponse.json();
+  expect({ url: new URL(assetResponse.url()).pathname, method: assetResponse.request().method(), status: assetResponse.status(), shape: Array.isArray(assetBody) ? `array(${assetBody.length})` : typeof assetBody }).toEqual({ url: `/api/backend/api/v1/investigations/${investigationId}/assets`, method: 'GET', status: 200, shape: 'array(0)' });
   await expect(page.getByRole('heading', { name: 'Scientific asset provenance.' })).toBeVisible();
   await expect(page.getByText('No asset records exist for this Investigation.')).toBeVisible();
   await expect(page.getByText(/legal ownership are assessed separately/i)).toBeVisible();
+  await expect(page.getByText('Scientific asset records could not be loaded.')).toHaveCount(0);
+  expect(assetConsoleErrors).toEqual([]);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.getByRole('heading', { name: 'Scientific asset provenance.' })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
 });
