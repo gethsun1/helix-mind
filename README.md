@@ -157,7 +157,7 @@ The CRISPR-Cas9 / sickle-cell workflow is the demonstration domain. The Track 4 
 
 ## Technology
 
-Next.js / TypeScript · FastAPI / Python · PostgreSQL · Redis / RQ · OmegaClaw · MeTTa / PeTTa · PubMed · Europe PMC · Vercel + VPS deployment.
+Next.js / TypeScript · FastAPI / Python · PostgreSQL · Redis / RQ · OmegaClaw · MeTTa / PeTTa · PubMed · Europe PMC · Codex · Vercel + VPS deployment.
 
 ## Quick start
 
