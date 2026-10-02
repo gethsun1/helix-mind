@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/helixmind_github_cover.PNG" alt="HelixMind scientific intelligence workstation" width="100%" />
+  <img src="./public/helixmind_github_coverII.jpg" alt="HelixMind scientific intelligence workstation" width="100%" />
 </p>
 
 <h1 align="center">HelixMind</h1>
