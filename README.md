@@ -89,7 +89,7 @@ At the accepted M5 semantic-extraction checkpoint, the isolated workflow contain
 
 ## Architecture
 
-
+```mermaid
 flowchart TD
     A[Research Question] --> B[Bounded OmegaClaw AI Planning]
     B --> C[PubMed & Europe PMC Retrieval]
@@ -99,6 +99,7 @@ flowchart TD
     F --> G[Human Research Decisions]
     G --> H[SHA-256 Immutable Snapshot]
     H --> I[Reproducible Artifact / Provenance Record]
+```
     
 
 **Representation boundary:** PostgreSQL is canonical. HelixMind projects structured knowledge into MeTTa and validates that representation with PeTTa. This is not a claim that MeTTa or PeTTa runs the production evidence-reasoning pipeline. A separate fixed NAL/PLN proof is a technical demonstration, not the literature reasoning engine.
